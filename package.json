@@ -1,0 +1,7 @@
+{
+    "name": "quote-steel",
+    "version": "1.0.0",
+    "scripts": {
+        "vercel-build": "cd client && npm install && npm run build"
+    }
+}

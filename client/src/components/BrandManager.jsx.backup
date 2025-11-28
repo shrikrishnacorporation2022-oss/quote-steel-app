@@ -1,0 +1,266 @@
+import React, { useState, useEffect } from 'react';
+import { fetchBrands, createBrand, updateBrand, deleteBrand, fetchWeightProfiles } from '../api';
+
+const SIZES = ['6mm', '8mm', '10mm', '12mm', '16mm', '20mm', '25mm', '32mm'];
+
+function BrandManager() {
+    const [brands, setBrands] = useState([]);
+    const [weightProfiles, setWeightProfiles] = useState([]);
+    const [editingBrand, setEditingBrand] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const loadData = async () => {
+        try {
+            const [brandsData, profilesData] = await Promise.all([
+                fetchBrands(),
+                fetchWeightProfiles()
+            ]);
+            setBrands(brandsData);
+            setWeightProfiles(profilesData);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async (brand) => {
+        try {
+            if (brand._id) {
+                await updateBrand(brand._id, brand);
+            } else {
+                await createBrand(brand);
+            }
+            setEditingBrand(null);
+            loadData();
+        } catch (err) {
+            alert('Error saving brand: ' + err.message);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure?')) return;
+        try {
+            await deleteBrand(id);
+            loadData();
+        } catch (err) {
+            alert('Error deleting brand');
+        }
+    };
+
+    if (loading) return <div>Loading...</div>;
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">Brand Master</h2>
+                <button
+                    onClick={() => setEditingBrand({
+                        name: '', basePrice: 0, sellsInNos: false,
+                        sizeFormulas: {},
+                        weightProfile: '',
+                        sizePricing: {}
+                    })}
+                    className="btn-primary"
+                >
+                    Add Brand
+                </button>
+            </div>
+
+            {editingBrand ? (
+                <BrandForm
+                    brand={editingBrand}
+                    weightProfiles={weightProfiles}
+                    onSave={handleSave}
+                    onCancel={() => setEditingBrand(null)}
+                />
+            ) : (
+                <div className="grid gap-4">
+                    {brands.map(brand => (
+                        <div key={brand._id} className="card p-4 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-lg">{brand.name}</h3>
+                                <p className="text-sm text-gray-600">Base: {brand.basePrice} | {brand.sellsInNos ? 'Sells in Nos' : 'Sells in Kg'}</p>
+                            </div>
+                            <div className="space-x-2">
+                                <button
+                                    onClick={() => setEditingBrand(brand)}
+                                    className="text-blue-600 hover:underline"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(brand._id)}
+                                    className="text-red-600 hover:underline"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function BrandForm({ brand, weightProfiles, onSave, onCancel }) {
+    const [formData, setFormData] = useState(brand);
+
+    const handleChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleMapChange = (mapName, key, field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            [mapName]: {
+                ...prev[mapName],
+                [key]: field ? { ...prev[mapName]?.[key], [field]: value } : value
+                    < div >
+                    <label className="block text-sm font-medium text-gray-700">Brand Name</label>
+                    <input
+                        type="text"
+                        value={formData.name}
+                        onChange={e => handleChange('name', e.target.value)}
+                        className="input-field mt-1 block w-full p-2"
+                        required
+                    />
+                </div >
+        <div>
+            <label className="block text-sm font-medium text-gray-700">Base Price</label>
+            <input
+                type="number"
+                value={formData.basePrice}
+                onChange={e => handleChange('basePrice', Number(e.target.value))}
+                className="input-field mt-1 block w-full p-2"
+                required
+            />
+        </div>
+            </div >
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Weight Profile</label>
+                <select
+                    value={formData.weightProfile || ''}
+                    onChange={e => handleChange('weightProfile', e.target.value)}
+                    className="input-field mt-1 block w-full p-2"
+                >
+                    <option value="">-- Select Weight Profile --</option>
+                    {weightProfiles.map(p => (
+                        <option key={p._id} value={p._id}>{p.name}</option>
+                    ))}
+                </select>
+            </div>
+
+            <div className="flex items-center space-x-4">
+                <label className="flex items-center space-x-2">
+                    <input
+                        type="checkbox"
+                        checked={formData.sellsInNos}
+                        onChange={e => handleChange('sellsInNos', e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 shadow-sm"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Sells in Nos (e.g. TATA)</span>
+                </label>
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan="2">Formula</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rods/Bundle</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rod Wt (Kg)</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bundle Wt (Kg)</th>
+                            {formData.sellsInNos && (
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Rod</th>
+                            )}
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {SIZES.map(size => {
+                            // Calculate display values based on selected profile
+                            const profile = weightProfiles.find(p => p._id === formData.weightProfile);
+
+                            const rodsPerBundle = profile?.rodsPerBundle?.[size] || formData.bundleWeightMap?.[size] || 0;
+                            const rodWt = profile?.rodWeights?.[size] || formData.rodWeightMap?.[size] || 0;
+                            const bundleWt = (rodsPerBundle && rodWt) ? (rodsPerBundle * rodWt).toFixed(2) : '-';
+
+                            return (
+                                <tr key={size}>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{size}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">
+                                        <select
+                                            value={formData.sizeFormulas?.[size]?.formulaType || 'add'}
+                                            onChange={e => handleMapChange('sizeFormulas', size, 'formulaType', e.target.value)}
+                                            className="text-sm border-gray-300 rounded border p-1"
+                                        >
+                                            <option value="add">Add</option>
+                                            <option value="mul">Mul</option>
+                                        </select>
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={formData.sizeFormulas?.[size]?.modifier || 0}
+                                            onChange={e => handleMapChange('sizeFormulas', size, 'modifier', Number(e.target.value))}
+                                            className="w-20 text-sm border-gray-300 rounded border p-1"
+                                        />
+                                    </td>
+                                    {/* Rods Per Bundle */}
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 bg-gray-50">
+                                        {rodsPerBundle}
+                                    </td>
+                                    {/* Rod Weight */}
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 bg-gray-50">
+                                        {rodWt}
+                                    </td>
+                                    {/* Calculated Bundle Weight */}
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-bold text-blue-800 bg-blue-50">
+                                        {bundleWt}
+                                    </td>
+
+                                    {formData.sellsInNos && (
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                            <input
+                                                type="number"
+                                                value={formData.sizePricing?.[size] || ''}
+                                                onChange={e => handleMapChange('sizePricing', size, null, Number(e.target.value))}
+                                                className="w-20 text-sm border-gray-300 rounded border p-1"
+                                            />
+                                        </td>
+                                    )}
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    className="btn-primary"
+                >
+                    Save Brand
+                </button>
+            </div>
+        </form >
+    );
+}
+
+export default BrandManager;
