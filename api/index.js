@@ -17,7 +17,9 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const path = req.url.split('?')[0].replace('/api/', '');
+        // In Vercel, the path might be /weight-profiles or /api/weight-profiles
+        let path = req.url.split('?')[0];
+        path = path.replace('/api/', '').replace(/^\//, ''); // Remove leading /api/ or /
         const query = req.query;
 
         // ============ BRANDS ============
