@@ -15,7 +15,7 @@ export const fetchBrands = async () => {
 };
 
 export const fetchBrand = async (id) => {
-    const res = await fetch(`${API_URL}/brands/${id}`);
+    const res = await fetch(`${API_URL}/brands?id=${id}`);
     return handleResponse(res);
 };
 
@@ -29,7 +29,7 @@ export const createBrand = async (brand) => {
 };
 
 export const updateBrand = async (id, brand) => {
-    const res = await fetch(`${API_URL}/brands/${id}`, {
+    const res = await fetch(`${API_URL}/brands?id=${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(brand)
@@ -38,7 +38,7 @@ export const updateBrand = async (id, brand) => {
 };
 
 export const deleteBrand = async (id) => {
-    const res = await fetch(`${API_URL}/brands/${id}`, {
+    const res = await fetch(`${API_URL}/brands?id=${id}`, {
         method: 'DELETE'
     });
     return handleResponse(res);
@@ -60,7 +60,7 @@ export const createWeightProfile = async (profile) => {
 };
 
 export const updateWeightProfile = async (id, profile) => {
-    const res = await fetch(`${API_URL}/weight-profiles/${id}`, {
+    const res = await fetch(`${API_URL}/weight-profiles?id=${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profile)
@@ -69,7 +69,7 @@ export const updateWeightProfile = async (id, profile) => {
 };
 
 export const deleteWeightProfile = async (id) => {
-    const res = await fetch(`${API_URL}/weight-profiles/${id}`, {
+    const res = await fetch(`${API_URL}/weight-profiles?id=${id}`, {
         method: 'DELETE'
     });
     return handleResponse(res);
@@ -91,7 +91,7 @@ export const createProduct = async (product) => {
 };
 
 export const updateProduct = async (id, product) => {
-    const res = await fetch(`${API_URL}/products/${id}`, {
+    const res = await fetch(`${API_URL}/products?id=${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(product)
@@ -100,7 +100,7 @@ export const updateProduct = async (id, product) => {
 };
 
 export const deleteProduct = async (id) => {
-    const res = await fetch(`${API_URL}/products/${id}`, {
+    const res = await fetch(`${API_URL}/products?id=${id}`, {
         method: 'DELETE'
     });
     return handleResponse(res);
@@ -114,7 +114,7 @@ export const fetchQuotes = async (filters = {}) => {
 };
 
 export const fetchQuote = async (id) => {
-    const res = await fetch(`${API_URL}/quotes/${id}`);
+    const res = await fetch(`${API_URL}/quotes?id=${id}`);
     return handleResponse(res);
 };
 
@@ -128,7 +128,7 @@ export const createQuote = async (quote) => {
 };
 
 export const updateQuote = async (id, quote) => {
-    const res = await fetch(`${API_URL}/quotes/${id}`, {
+    const res = await fetch(`${API_URL}/quotes?id=${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(quote)
@@ -137,7 +137,7 @@ export const updateQuote = async (id, quote) => {
 };
 
 export const exportQuotePDF = async (id) => {
-    const res = await fetch(`${API_URL}/quotes/${id}/export`, {
+    const res = await fetch(`${API_URL}/quotes?id=${id}&export=true`, {
         method: 'POST'
     });
     if (!res.ok) {
@@ -148,14 +148,14 @@ export const exportQuotePDF = async (id) => {
 };
 
 export const deleteQuote = async (id) => {
-    const res = await fetch(`${API_URL}/quotes/${id}`, {
+    const res = await fetch(`${API_URL}/quotes?id=${id}`, {
         method: 'DELETE'
     });
     return handleResponse(res);
 };
 
 export const deleteQuotesBulk = async (ids) => {
-    const res = await fetch(`${API_URL}/quotes/bulk-delete`, {
+    const res = await fetch(`${API_URL}/quotes?bulkDelete=true`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids })
