@@ -1,0 +1,8 @@
+{
+    "name": "quote-steel-api",
+    "version": "1.0.0",
+    "dependencies": {
+        "mongoose": "^8.0.0",
+        "pdfkit": "^0.15.0"
+    }
+}
