@@ -734,7 +734,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       </div>
 
       {/* Summary & Actions */}
-      <div className="card p-6 sticky bottom-4 shadow-glow">
+      <div className="card p-4 md:p-6 md:sticky md:bottom-4 shadow-glow mt-6">
         <div className="space-y-4">
           <div className="flex justify-between items-center text-sm text-slate-600">
             <span>Steel Subtotal:</span>

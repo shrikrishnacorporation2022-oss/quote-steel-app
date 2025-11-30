@@ -4,24 +4,116 @@ const Product = require('./_lib/models/Product');
 const Quote = require('./_lib/models/Quote');
 const WeightProfile = require('./_lib/models/WeightProfile');
 const pdfGenerator = require('./_lib/pdfGenerator');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
+const cookie = require('cookie');
 
 module.exports = async (req, res) => {
     try {
+        // Connect to DB first
         await connectDB();
 
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        // CORS Headers
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
 
         if (req.method === 'OPTIONS') {
             return res.status(200).end();
         }
 
+        // Parse path
         let path = req.url.split('?')[0];
         path = path.replace('/api/', '').replace(/^\//, '');
         const query = req.query;
 
-        // BRANDS
+        // --- AUTHENTICATION ROUTES ---
+
+        // Helper to check auth
+        const isAuthenticated = () => {
+            const cookies = cookie.parse(req.headers.cookie || '');
+            return cookies.auth_token === 'valid_session';
+        };
+
+        // GET /api/auth/me
+        if (path === 'auth/me' && req.method === 'GET') {
+            return res.json({ authenticated: isAuthenticated() });
+        }
+
+        // POST /api/auth/logout
+        if (path === 'auth/logout' && req.method === 'POST') {
+            res.setHeader('Set-Cookie', cookie.serialize('auth_token', '', {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 0,
+                path: '/'
+            }));
+            return res.json({ success: true, message: 'Logged out' });
+        }
+
+        // GET /api/auth/setup
+        if (path === 'auth/setup' && req.method === 'GET') {
+            if (!process.env.AUTHENTICATOR_SECRET) {
+                // Generate secret if not exists (log it for admin)
+                const secret = speakeasy.generateSecret({ name: 'Ammashanthi Quote Steel' });
+                console.log('NEW SECRET:', secret.base32);
+                // In a real serverless env, we can't easily persist this to env. 
+                // But for first time setup, we return it so user can add to env.
+                return res.json({
+                    qrImage: await qrcode.toDataURL(secret.otpauth_url),
+                    secret: secret.base32,
+                    message: 'Add this secret to your Vercel Environment Variables as AUTHENTICATOR_SECRET'
+                });
+            }
+
+            const secret = process.env.AUTHENTICATOR_SECRET;
+            const otpauth_url = speakeasy.otpauthURL({
+                secret: secret,
+                label: 'Ammashanthi Quote Steel',
+                encoding: 'base32'
+            });
+            return res.json({ qrImage: await qrcode.toDataURL(otpauth_url), secret });
+        }
+
+        // POST /api/auth/verify
+        if (path === 'auth/verify' && req.method === 'POST') {
+            const { token } = req.body;
+            const secret = process.env.AUTHENTICATOR_SECRET;
+
+            if (!secret) return res.status(500).json({ message: 'Server secret not configured' });
+
+            const verified = speakeasy.totp.verify({
+                secret: secret,
+                encoding: 'base32',
+                token: token,
+                window: 1
+            });
+
+            if (verified) {
+                res.setHeader('Set-Cookie', cookie.serialize('auth_token', 'valid_session', {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    maxAge: 30 * 24 * 60 * 60, // 30 days
+                    path: '/'
+                }));
+                return res.json({ success: true });
+            } else {
+                return res.status(401).json({ success: false, message: 'Invalid code' });
+            }
+        }
+
+        // --- PROTECTED ROUTES ---
+        // For now, we allow read access but protect write access? 
+        // Or protect everything? Let's protect write operations.
+
+        if (req.method !== 'GET' && !isAuthenticated()) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        // ============ BRANDS ============
         if (path === 'brands' && req.method === 'GET' && !query.id) {
             const brands = await Brand.find().populate('weightProfile').lean();
             const brandsWithDerivedData = brands.map(b => {
@@ -74,7 +166,7 @@ module.exports = async (req, res) => {
             return res.json({ message: 'Brand deleted' });
         }
 
-        // PRODUCTS
+        // ============ PRODUCTS ============
         if (path === 'products' && req.method === 'GET' && !query.id) {
             const products = await Product.find().sort({ name: 1 });
             return res.json(products);
@@ -102,7 +194,7 @@ module.exports = async (req, res) => {
             return res.json({ message: 'Product deleted' });
         }
 
-        // WEIGHT PROFILES
+        // ============ WEIGHT PROFILES ============
         if (path === 'weight-profiles' && req.method === 'GET' && !query.id) {
             const profiles = await WeightProfile.find().sort({ name: 1 }).lean();
             return res.json(profiles);
@@ -130,7 +222,7 @@ module.exports = async (req, res) => {
             return res.json({ message: 'Profile deleted' });
         }
 
-        // QUOTES
+        // ============ QUOTES ============
         if (path === 'quotes' && req.method === 'GET' && !query.id && !query.export) {
             let dbQuery = {};
             if (query.customerName) dbQuery.customerName = { $regex: query.customerName, $options: 'i' };

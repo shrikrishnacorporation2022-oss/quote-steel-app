@@ -78,7 +78,7 @@
 
   /* Navigation */
   .nav-item {
-    @apply flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all duration-200;
+    @apply flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all duration-200 min-h-[44px] min-w-fit whitespace-nowrap;
   }
 
   .nav-item-active {
@@ -120,6 +120,17 @@
 }
 
 @layer utilities {
+
+  /* Hide Scrollbar */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
