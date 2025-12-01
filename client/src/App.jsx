@@ -20,7 +20,7 @@ function App() {
     const checkAuth = async () => {
         try {
             // Adjust API URL to point to auth endpoint
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const apiUrl = import.meta.env.VITE_API_URL || '/api';
             // For Vercel compatibility, we use /api/auth
             const authUrl = apiUrl.endsWith('/api') ? apiUrl.replace('/api', '/api/auth') : `${apiUrl}/api/auth`;
 
@@ -39,7 +39,7 @@ function App() {
 
     const handleLogout = async () => {
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const apiUrl = import.meta.env.VITE_API_URL || '/api';
             const authUrl = apiUrl.endsWith('/api') ? apiUrl.replace('/api', '/api/auth') : `${apiUrl}/api/auth`;
 
             await fetch(`${authUrl}/logout`, {
