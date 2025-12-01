@@ -113,7 +113,7 @@ const generateQuotePDF = (quote) => {
                 const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
                 const itemPrice = isInventory
                     ? `${formatCurrency(item.pricePerRod)}/${item.inputUnit}` // stored in pricePerRod for inventory
-                    : (item.pricePerKg ? formatCurrency(item.pricePerKg) + '/kg' : formatCurrency(item.pricePerRod) + '/rod');
+                    : (item.pricePerKg ? formatCurrency(item.pricePerKg) + `/${item.inputUnit || 'kg'}` : formatCurrency(item.pricePerRod) + `/${item.inputUnit || 'rod'}`);
 
                 doc.fillColor(secondaryColor)
                     .text(index + 1, 45, y)
@@ -257,9 +257,8 @@ const generateQuotePDF = (quote) => {
                 .font('Helvetica')
                 .text('Terms & Conditions:', 50, footerY + 10)
                 .fontSize(7)
-                .text('• Payment terms: As agreed', 50, footerY + 23)
-                .text('• Delivery: Subject to availability', 50, footerY + 33)
-                .text('• All prices are tax inclusive', 50, footerY + 43);
+                .text('\u2022 Payment terms: As agreed', 50, footerY + 23)
+                .text('\u2022 Delivery: Subject to availability', 50, footerY + 33);
 
             doc.fontSize(8)
                 .text('Thank you for your business!', 320, footerY + 10, { align: 'center', width: 242 });

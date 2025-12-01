@@ -89,10 +89,10 @@ function SavedQuotes({ onEdit }) {
                     downloadImage(blob, quote.quoteNo);
                 }
                 setQuoteForImage(null);
-            }, 'image/jpeg', 0.9);
+            }, 'image/jpeg', 0.95);
         } catch (error) {
             console.error('Error generating image:', error);
-            alert('Error generating image');
+            alert('Error generating image: ' + error.message);
             setQuoteForImage(null);
         }
     };
