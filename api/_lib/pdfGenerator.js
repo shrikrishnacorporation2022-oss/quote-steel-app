@@ -111,9 +111,19 @@ const generateQuotePDF = (quote) => {
 
                 const isInventory = item.brand === 'Other';
                 const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
-                const itemPrice = isInventory
-                    ? `${formatCurrency(item.pricePerRod)}/${item.inputUnit}` // stored in pricePerRod for inventory
-                    : (item.pricePerKg ? formatCurrency(item.pricePerKg) + `/${item.inputUnit || 'kg'}` : formatCurrency(item.pricePerRod) + `/${item.inputUnit || 'rod'}`);
+
+                // Determine which price to show based on the input unit
+                let itemPrice;
+                if (isInventory) {
+                    itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`;
+                } else {
+                    // For steel: if unit is kg, show pricePerKg; otherwise show pricePerRod
+                    if (item.inputUnit === 'kg' && item.pricePerKg) {
+                        itemPrice = `${formatCurrency(item.pricePerKg)}/${item.inputUnit}`;
+                    } else {
+                        itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit || 'rod'}`;
+                    }
+                }
 
                 doc.fillColor(secondaryColor)
                     .text(index + 1, 45, y)

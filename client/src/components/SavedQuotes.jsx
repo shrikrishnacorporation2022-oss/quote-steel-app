@@ -68,26 +68,8 @@ function SavedQuotes({ onEdit }) {
             canvas.toBlob(async (blob) => {
                 if (!blob) return;
 
-                const file = new File([blob], `Quote-${quote.quoteNo}.jpg`, { type: 'image/jpeg' });
-
-                // Try native sharing first (mobile)
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    try {
-                        await navigator.share({
-                            files: [file],
-                            title: `Quote ${quote.quoteNo}`,
-                            text: `Here is the quotation for ${quote.customerName}`
-                        });
-                    } catch (err) {
-                        if (err.name !== 'AbortError') {
-                            console.error('Share failed:', err);
-                            downloadImage(blob, quote.quoteNo);
-                        }
-                    }
-                } else {
-                    // Fallback to download
-                    downloadImage(blob, quote.quoteNo);
-                }
+                // Download directly (like PDF)
+                downloadImage(blob, quote.quoteNo);
                 setQuoteForImage(null);
             }, 'image/jpeg', 0.95);
         } catch (error) {
