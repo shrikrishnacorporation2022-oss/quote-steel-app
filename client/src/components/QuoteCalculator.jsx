@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { fetchBrands, fetchProducts, createQuote, updateQuote, exportQuotePDF } from '../api';
 import { calculateItem } from '../utils/calculations';
 import { ChevronDown, ChevronUp, Plus, Trash2, Save, FileText, User, Phone, Mail, MapPin, Building2, Box } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import QuoteImageTemplate from './QuoteImageTemplate';
 
 const SIZES = ['6mm', '8mm', '10mm', '12mm', '16mm', '20mm', '25mm', '32mm'];
 
@@ -26,6 +28,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
   const [transportCharges, setTransportCharges] = useState(0);
   const [loadingUnloadingCharges, setLoadingUnloadingCharges] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [quoteForImage, setQuoteForImage] = useState(null);
+  const imageTemplateRef = React.useRef(null);
 
   useEffect(() => {
     loadData();
@@ -291,9 +295,11 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       if (initialData && initialData.mode === 'edit') {
         await updateQuote(initialData._id, quoteData);
         alert('Quote updated successfully!');
+        setTimeout(() => downloadQuoteImage(quoteData), 1500);
       } else {
         await createQuote(quoteData);
         alert('Quote saved successfully!');
+        setTimeout(() => downloadQuoteImage(quoteData), 1500);
       }
 
       // Reset logic
