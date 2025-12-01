@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { fetchQuotes, exportQuotePDF, deleteQuotesBulk } from '../api';
-import { Download, Share2, MessageCircle, Calendar, User, FileText, Search, Edit, Copy, Mail, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Download, Share2, MessageCircle, Calendar, User, FileText, Search, Edit, Copy, Mail, Trash2, CheckSquare, Square, Image as ImageIcon } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import QuoteImageTemplate from './QuoteImageTemplate';
 
 function SavedQuotes({ onEdit }) {
     const [quotes, setQuotes] = useState([]);
@@ -9,6 +11,8 @@ function SavedQuotes({ onEdit }) {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [selectedQuotes, setSelectedQuotes] = useState(new Set());
+    const [quoteForImage, setQuoteForImage] = useState(null);
+    const imageTemplateRef = React.useRef(null);
 
     useEffect(() => {
         loadQuotes();
@@ -45,6 +49,63 @@ function SavedQuotes({ onEdit }) {
         const message = `*Quote ${quote.quoteNo}*\n\nCustomer: ${quote.customerName}\nTotal: ₹${quote.total?.toFixed(2)}\n\nView full quote: [PDF Link]`;
         const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');
+    };
+
+    const handleShareImage = async (quote) => {
+        try {
+            setQuoteForImage(quote);
+            // Wait for render
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            if (!imageTemplateRef.current) return;
+
+            const canvas = await html2canvas(imageTemplateRef.current, {
+                scale: 2, // Higher quality
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+
+                const file = new File([blob], `Quote-${quote.quoteNo}.jpg`, { type: 'image/jpeg' });
+
+                // Try native sharing first (mobile)
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: `Quote ${quote.quoteNo}`,
+                            text: `Here is the quotation for ${quote.customerName}`
+                        });
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            console.error('Share failed:', err);
+                            downloadImage(blob, quote.quoteNo);
+                        }
+                    }
+                } else {
+                    // Fallback to download
+                    downloadImage(blob, quote.quoteNo);
+                }
+                setQuoteForImage(null);
+            }, 'image/jpeg', 0.9);
+        } catch (error) {
+            console.error('Error generating image:', error);
+            alert('Error generating image');
+            setQuoteForImage(null);
+        }
+    };
+
+    const downloadImage = (blob, quoteNo) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Quote-${quoteNo}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
     };
 
     const handleEmailShare = (quote) => {
@@ -274,6 +335,13 @@ function SavedQuotes({ onEdit }) {
                                     <MessageCircle className="w-4 h-4" />
                                 </button>
                                 <button
+                                    onClick={() => handleShareImage(quote)}
+                                    className="col-span-1 btn-primary py-2 text-xs flex flex-col items-center justify-center gap-1 bg-pink-600 hover:bg-pink-700 border-pink-600 text-white"
+                                    title="Share Image"
+                                >
+                                    <ImageIcon className="w-4 h-4" />
+                                </button>
+                                <button
                                     onClick={() => handleEmailShare(quote)}
                                     className="col-span-1 btn-secondary py-2 text-xs flex flex-col items-center justify-center gap-1"
                                     title="Email"
@@ -299,6 +367,11 @@ function SavedQuotes({ onEdit }) {
                     ))}
                 </div>
             )}
+
+            {/* Hidden Template for Image Generation */}
+            <div style={{ position: 'absolute', top: -9999, left: -9999 }}>
+                <QuoteImageTemplate ref={imageTemplateRef} quote={quoteForImage} />
+            </div>
         </div>
     );
 }

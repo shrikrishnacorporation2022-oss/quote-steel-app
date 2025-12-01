@@ -155,13 +155,19 @@ const generateQuotePDF = (quote) => {
             const totalsX = 360;
             let totalsY = y + 20;
 
+            // Calculate taxable total (before transport and loading)
+            const taxableTotal = (quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0);
+            const hasNonTaxableCharges = (quote.transportCharges > 0) || (quote.loadingUnloadingCharges > 0);
+
             // Calculate box height based on content
             let boxHeight = 80;
             if (quote.onlineDiscountAmount > 0) boxHeight += 20;
             if (quote.offlineDiscountAmount > 0) boxHeight += 20;
+            if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) boxHeight += 20;
+            if (hasNonTaxableCharges) boxHeight += 20; // For "Total (Tax Inclusive)" line
             if (quote.transportCharges > 0) boxHeight += 20;
             if (quote.loadingUnloadingCharges > 0) boxHeight += 20;
-            if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) boxHeight += 20;
+            if (hasNonTaxableCharges) boxHeight += 25; // For "Grand Total" line with extra spacing
 
             // Totals background box
             doc.rect(totalsX - 10, totalsY - 10, 212, boxHeight).fill('#F8FAFC').stroke('#E2E8F0');
@@ -199,29 +205,48 @@ const generateQuotePDF = (quote) => {
                 totalsY += 20;
             }
 
-            // Transport Charges
-            if (quote.transportCharges > 0) {
+            // Total (Tax Inclusive) - Only if there are non-taxable charges
+            if (hasNonTaxableCharges) {
                 doc.fillColor(secondaryColor)
-                    .text('Transport Charges:', totalsX, totalsY)
-                    .text(`+${formatCurrency(quote.transportCharges)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    .fontSize(11)
+                    .font('Helvetica-Bold')
+                    .text('Total (Tax Inclusive):', totalsX, totalsY)
+                    .text(formatCurrency(taxableTotal), totalsX + 110, totalsY, { width: 90, align: 'right' });
                 totalsY += 20;
-            }
 
-            // Loading/Unloading Charges
-            if (quote.loadingUnloadingCharges > 0) {
-                doc.fillColor(secondaryColor)
-                    .text('Loading/Unloading:', totalsX, totalsY)
-                    .text(`+${formatCurrency(quote.loadingUnloadingCharges)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
-                totalsY += 20;
-            }
+                // Non-taxable charges
+                doc.fontSize(10).font('Helvetica').fillColor(secondaryColor);
 
-            // Grand Total (Tax Inclusive)
-            doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(accentColor);
-            doc.fillColor('#FFFFFF')
-                .fontSize(12)
-                .font('Helvetica-Bold')
-                .text('Total (Tax Inclusive):', totalsX, totalsY)
-                .text(formatCurrency(quote.total), totalsX + 110, totalsY, { width: 90, align: 'right' });
+                // Transport Charges
+                if (quote.transportCharges > 0) {
+                    doc.text('Transport Charges:', totalsX, totalsY)
+                        .text(`+${formatCurrency(quote.transportCharges)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                }
+
+                // Loading/Unloading Charges
+                if (quote.loadingUnloadingCharges > 0) {
+                    doc.text('Loading/Unloading:', totalsX, totalsY)
+                        .text(`+${formatCurrency(quote.loadingUnloadingCharges)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                }
+
+                // Grand Total
+                doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(accentColor);
+                doc.fillColor('#FFFFFF')
+                    .fontSize(12)
+                    .font('Helvetica-Bold')
+                    .text('Grand Total:', totalsX, totalsY)
+                    .text(formatCurrency(quote.total), totalsX + 110, totalsY, { width: 90, align: 'right' });
+            } else {
+                // No non-taxable charges, just show Total (Tax Inclusive)
+                doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(accentColor);
+                doc.fillColor('#FFFFFF')
+                    .fontSize(12)
+                    .font('Helvetica-Bold')
+                    .text('Total (Tax Inclusive):', totalsX, totalsY)
+                    .text(formatCurrency(quote.total), totalsX + 110, totalsY, { width: 90, align: 'right' });
+            }
 
             // === FOOTER ===
             const footerY = 750;
