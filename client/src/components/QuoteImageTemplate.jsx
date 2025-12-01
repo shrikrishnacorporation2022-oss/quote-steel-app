@@ -56,23 +56,31 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                    {quote.items.map((item, index) => (
-                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                            <td className="py-3 px-4 text-sm text-slate-800">
-                                <div className="font-medium">{item.productName}</div>
-                                <div className="text-xs text-slate-500">{item.brandName} - {item.size}</div>
-                            </td>
-                            <td className="py-3 px-4 text-right text-sm text-slate-600">
-                                {item.quantity} {item.unit}
-                            </td>
-                            <td className="py-3 px-4 text-right text-sm text-slate-600">
-                                ₹{item.price?.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-4 text-right text-sm font-medium text-slate-800">
-                                ₹{item.total?.toFixed(2)}
-                            </td>
-                        </tr>
-                    ))}
+                    {quote.items.map((item, index) => {
+                        const isInventory = item.brand === 'Other';
+                        const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
+                        const itemPrice = isInventory
+                            ? item.pricePerRod
+                            : (item.inputUnit === 'kg' && item.pricePerKg ? item.pricePerKg : item.pricePerRod);
+
+                        return (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                <td className="py-3 px-4 text-sm text-slate-800">
+                                    <div className="font-medium">{itemName}</div>
+                                    <div className="text-xs text-slate-500">{item.brand === 'Other' ? '' : `${item.brand} - `}{item.size || ''}</div>
+                                </td>
+                                <td className="py-3 px-4 text-right text-sm text-slate-600">
+                                    {item.inputQty} {item.inputUnit}
+                                </td>
+                                <td className="py-3 px-4 text-right text-sm text-slate-600">
+                                    ₹{itemPrice?.toFixed(2)}
+                                </td>
+                                <td className="py-3 px-4 text-right text-sm font-medium text-slate-800">
+                                    ₹{item.amount?.toFixed(2)}
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
 
@@ -81,7 +89,7 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                 <div className="w-64 space-y-3">
                     <div className="flex justify-between text-slate-600">
                         <span>Subtotal:</span>
-                        <span>₹{quote.subTotal?.toFixed(2)}</span>
+                        <span>₹{quote.subtotal?.toFixed(2)}</span>
                     </div>
                     {(quote.onlineDiscountAmount > 0 || quote.offlineDiscountAmount > 0) && (
                         <>
@@ -103,7 +111,7 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                         <>
                             <div className="flex justify-between text-lg font-semibold text-indigo-700 pt-2 border-t border-indigo-200">
                                 <span>Total (Tax Inclusive):</span>
-                                <span>₹{((quote.subTotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0)).toFixed(2)}</span>
+                                <span>₹{((quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0)).toFixed(2)}</span>
                             </div>
                             {quote.transportCharges > 0 && (
                                 <div className="flex justify-between text-slate-600">
