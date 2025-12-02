@@ -320,7 +320,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       setOfflineDiscountPercent(0);
 
       if (onSaveComplete) {
-        onSaveComplete();
+        onSaveComplete(quoteData.quoteNo); // Pass quote number for scroll/highlight
       }
     } catch (error) {
       alert('Error saving quote: ' + error.message);

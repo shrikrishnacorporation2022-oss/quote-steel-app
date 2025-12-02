@@ -12,6 +12,7 @@ function App() {
     const [editingQuote, setEditingQuote] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loadingAuth, setLoadingAuth] = useState(true);
+    const [recentQuoteNo, setRecentQuoteNo] = useState(null);
 
     useEffect(() => {
         checkAuth();
@@ -57,8 +58,9 @@ function App() {
         setActiveTab('calculator');
     };
 
-    const handleSaveComplete = () => {
+    const handleSaveComplete = (quoteNo) => {
         setEditingQuote(null);
+        setRecentQuoteNo(quoteNo);
         setActiveTab('quotes');
     };
 
@@ -78,7 +80,7 @@ function App() {
                     onSaveComplete={handleSaveComplete}
                 />;
             case 'quotes':
-                return <SavedQuotes onEdit={handleEditQuote} />;
+                return <SavedQuotes onEdit={handleEditQuote} recentQuoteNo={recentQuoteNo} />;
             default:
                 const TabComponent = tabs.find(t => t.id === activeTab)?.component;
                 return TabComponent ? <TabComponent /> : null;

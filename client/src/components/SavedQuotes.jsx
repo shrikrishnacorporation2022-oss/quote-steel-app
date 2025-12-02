@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { fetchQuotes, exportQuotePDF, deleteQuotesBulk } from '../api';
 import { Download, Share2, MessageCircle, Calendar, User, FileText, Search, Edit, Copy, Mail, Trash2, CheckSquare, Square, Image as ImageIcon } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import QuoteImageTemplate from './QuoteImageTemplate';
 
-function SavedQuotes({ onEdit }) {
+function SavedQuotes({ onEdit, recentQuoteNo }) {
     const [quotes, setQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -12,16 +12,37 @@ function SavedQuotes({ onEdit }) {
     const [dateTo, setDateTo] = useState('');
     const [selectedQuotes, setSelectedQuotes] = useState(new Set());
     const [quoteForImage, setQuoteForImage] = useState(null);
-    const imageTemplateRef = React.useRef(null);
+    const [highlightQuoteNo, setHighlightQuoteNo] = useState(null);
+    const imageTemplateRef = useRef(null);
+    const quoteRefs = useRef({});
 
     useEffect(() => {
         loadQuotes();
     }, []);
 
+    useEffect(() => {
+        if (recentQuoteNo && quotes.length > 0) {
+            // Scroll to the new quote
+            const element = quoteRefs.current[recentQuoteNo];
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setHighlightQuoteNo(recentQuoteNo);
+
+                // Remove highlight after animation
+                const timer = setTimeout(() => {
+                    setHighlightQuoteNo(null);
+                }, 3000);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [recentQuoteNo, quotes]);
+
     const loadQuotes = async () => {
         try {
             const data = await fetchQuotes();
-            setQuotes(data);
+            // Sort by date descending (newest first)
+            const sortedData = data.sort((a, b) => new Date(b.date) - new Date(a.date));
+            setQuotes(sortedData);
         } catch (err) {
             console.error('Error loading quotes:', err);
         } finally {
@@ -246,7 +267,10 @@ function SavedQuotes({ onEdit }) {
                     {filteredQuotes.map(quote => (
                         <div
                             key={quote._id}
-                            className={`card p-6 space-y-4 hover:shadow-xl transition-all duration-300 group relative border-2 ${selectedQuotes.has(quote._id) ? 'border-indigo-500 bg-indigo-50/10' : 'border-transparent'}`}
+                            ref={el => quoteRefs.current[quote.quoteNo] = el}
+                            className={`card p-6 space-y-4 hover:shadow-xl transition-all duration-500 group relative border-2 
+                                ${highlightQuoteNo === quote.quoteNo ? 'ring-2 ring-indigo-500 shadow-2xl scale-[1.02] bg-indigo-50' : ''}
+                                ${selectedQuotes.has(quote._id) ? 'border-indigo-500 bg-indigo-50/10' : 'border-transparent'}`}
                         >
                             {/* Selection Checkbox */}
                             <button
