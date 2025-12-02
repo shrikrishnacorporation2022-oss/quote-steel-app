@@ -214,6 +214,12 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
     }
   };
 
+  const handleCancel = () => {
+    if (onSaveComplete) {
+      onSaveComplete(); // Return to saved quotes without saving
+    }
+  };
+
   const calculateTotals = () => {
     const steelTotal = Object.values(items).reduce((sum, item) => sum + (item.amount || 0), 0);
     const productTotal = quoteProducts.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -289,34 +295,6 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       notes
     };
 
-
-    setSaving(true);
-    try {
-      if (initialData && initialData.mode === 'edit') {
-        await updateQuote(initialData._id, quoteData);
-        alert('Quote updated successfully!');
-        setTimeout(() => downloadQuoteImage(quoteData), 1500);
-      } else {
-        await createQuote(quoteData);
-        alert('Quote saved successfully!');
-        setTimeout(() => downloadQuoteImage(quoteData), 1500);
-      }
-
-      // Reset logic
-      setItems({});
-      setQuoteProducts([]);
-      setNotes('');
-      setOnlineDiscountPercent(0);
-      setOfflineDiscountPercent(0);
-
-      if (onSaveComplete) {
-        onSaveComplete();
-      }
-    } catch (error) {
-      alert('Error saving quote: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
   };
 
   // ... (rest of component)
@@ -795,6 +773,16 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
               <Save className="w-5 h-5" />
               {saving ? 'Saving...' : (initialData && initialData.mode === 'edit' ? 'Update Quote' : 'Save Quote')}
             </button>
+
+            {initialData && initialData.mode === 'edit' && (
+              <button
+                onClick={handleCancel}
+                className="btn-secondary flex items-center justify-center gap-2"
+              >
+                <ChevronDown className="w-5 h-5" />
+                Cancel
+              </button>
+            )}
 
             <button
               onClick={handleReset}
