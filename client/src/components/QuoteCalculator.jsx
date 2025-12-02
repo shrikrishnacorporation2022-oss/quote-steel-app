@@ -30,6 +30,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
   const [saving, setSaving] = useState(false);
   const [quoteForImage, setQuoteForImage] = useState(null);
   const imageTemplateRef = React.useRef(null);
+  const [globalUnit, setGlobalUnit] = useState('kg'); // Global unit for kg-selling brands
 
   useEffect(() => {
     loadData();
@@ -132,9 +133,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
 
   const handleItemChange = (size, field, value) => {
     setItems(prev => {
-      const defaultUnit = selectedBrand?.sellsInNos ? 'nos' : 'kg';
+      const defaultUnit = selectedBrand?.sellsInNos ? 'nos' : globalUnit;
       const currentItem = prev[size] || { size, inputUnit: defaultUnit, inputQty: 0 };
-      const updatedItem = { ...currentItem, [field]: value };
+      const updatedItem = { ...currentItem, [field]: value, inputUnit: defaultUnit };
 
       if (selectedBrand) {
         const calculated = calculateItem(updatedItem, selectedBrand);
@@ -155,8 +156,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
           let newUnit = item.inputUnit;
           if (selectedBrand.sellsInNos) {
             newUnit = 'nos';
-          } else if (newUnit === 'nos' && !selectedBrand.sellsInNos) {
-            newUnit = 'kg';
+          } else {
+            // For kg-selling brands, use globalUnit
+            newUnit = globalUnit;
           }
           const itemWithNewUnit = { ...item, inputUnit: newUnit };
           const calculated = calculateItem(itemWithNewUnit, {
@@ -168,7 +170,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
         return updatedItems;
       });
     }
-  }, [selectedBrandId, globalPrice]);
+  }, [selectedBrandId, globalPrice, globalUnit]);
 
   const handleRemoveItem = (size) => {
     setItems(prev => {
@@ -410,7 +412,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
 
       {/* Brand Selection & Global Price */}
       <div className="card p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Select Brand</label>
             <select
@@ -423,6 +425,21 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
               ))}
             </select>
           </div>
+
+          {selectedBrand && !selectedBrand.sellsInNos && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Unit for All Items</label>
+              <select
+                value={globalUnit}
+                onChange={e => setGlobalUnit(e.target.value)}
+                className="input-field"
+              >
+                <option value="kg">Kilograms (kg)</option>
+                <option value="nos">Numbers (nos)</option>
+                <option value="bundle">Bundles</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -480,15 +497,17 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
                   <tr key={size} className={`table-row ${hasQty ? 'bg-indigo-50/30' : ''}`}>
                     <td className="px-4 py-3 font-medium text-slate-900">{size}</td>
                     <td className="px-4 py-3">
-                      <select
-                        value={item?.inputUnit || 'kg'}
-                        onChange={e => handleItemChange(size, 'inputUnit', e.target.value)}
-                        className="input-field py-1.5 text-sm"
-                      >
-                        <option value="kg">Kg</option>
-                        <option value="bundle">Bundle</option>
-                        <option value="nos">Nos</option>
-                      </select>
+                      {selectedBrand?.sellsInNos ? (
+                        <select
+                          value={item?.inputUnit || 'nos'}
+                          onChange={e => handleItemChange(size, 'inputUnit', e.target.value)}
+                          className="input-field py-1.5 text-sm"
+                        >
+                          <option value="nos">Nos</option>
+                        </select>
+                      ) : (
+                        <span className="text-sm text-slate-600 capitalize">{globalUnit}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <input
