@@ -297,6 +297,31 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       notes
     };
 
+    setSaving(true);
+    try {
+      if (initialData && initialData.mode === 'edit') {
+        await updateQuote(initialData._id, quoteData);
+        alert('Quote updated successfully!');
+      } else {
+        await createQuote(quoteData);
+        alert('Quote saved successfully!');
+      }
+
+      // Reset logic
+      setItems({});
+      setQuoteProducts([]);
+      setNotes('');
+      setOnlineDiscountPercent(0);
+      setOfflineDiscountPercent(0);
+
+      if (onSaveComplete) {
+        onSaveComplete();
+      }
+    } catch (error) {
+      alert('Error saving quote: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ... (rest of component)
