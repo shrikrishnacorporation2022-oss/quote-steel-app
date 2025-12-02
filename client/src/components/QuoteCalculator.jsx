@@ -542,9 +542,15 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
                     <td className="px-4 py-3">
                       <input
                         type="number"
-                        step="0.01"
+                        step={item?.inputUnit === 'kg' ? "0.01" : "1"}
                         value={item?.inputQty || ''}
                         onChange={e => handleItemChange(size, 'inputQty', parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          // Prevent decimal point and 'e' for non-kg units
+                          if (item?.inputUnit !== 'kg' && (e.key === '.' || e.key === 'e')) {
+                            e.preventDefault();
+                          }
+                        }}
                         className="input-field py-1.5 w-24"
                         placeholder="0"
                       />
@@ -624,9 +630,14 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
                     <td className="px-4 py-3">
                       <input
                         type="number"
-                        step="0.01"
+                        step={product.unit === 'kg' ? "0.01" : "1"}
                         value={product.inputQty}
                         onChange={e => handleProductChange(index, 'inputQty', parseFloat(e.target.value) || 0)}
+                        onKeyDown={(e) => {
+                          if (product.unit !== 'kg' && (e.key === '.' || e.key === 'e')) {
+                            e.preventDefault();
+                          }
+                        }}
                         className="input-field py-1.5 w-24"
                       />
                     </td>
