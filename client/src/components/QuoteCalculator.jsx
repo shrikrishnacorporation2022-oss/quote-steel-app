@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2, Save, FileText, User, Phone, Mail
 import html2canvas from 'html2canvas';
 import QuoteImageTemplate from './QuoteImageTemplate';
 
-const SIZES = ['6mm', '8mm', '10mm', '12mm', '16mm', '20mm', '25mm', '32mm'];
+const SIZES = ['8mm', '10mm', '12mm', '16mm', '20mm', '25mm', '32mm'];
 
 function QuoteCalculator({ initialData, onSaveComplete }) {
   const [brands, setBrands] = useState([]);
