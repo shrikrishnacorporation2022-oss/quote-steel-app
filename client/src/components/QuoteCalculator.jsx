@@ -73,6 +73,11 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       if (firstSteelItem) {
         const brand = brands.find(b => b.name === firstSteelItem.brand);
         if (brand) brandIdToSelect = brand._id;
+
+        // Set globalUnit from the first steel item's unit
+        if (firstSteelItem.inputUnit && !brand?.sellsInNos) {
+          setGlobalUnit(firstSteelItem.inputUnit);
+        }
       }
 
       if (brandIdToSelect) {
