@@ -59,9 +59,25 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                     {quote.items.map((item, index) => {
                         const isInventory = item.brand === 'Other';
                         const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
-                        const itemPrice = isInventory
-                            ? item.pricePerRod
-                            : (item.inputUnit === 'kg' && item.pricePerKg ? item.pricePerKg : item.pricePerRod);
+
+                        // Calculate display values
+                        let quantityDisplay, itemPrice;
+                        if (isInventory) {
+                            quantityDisplay = `${item.inputQty} ${item.inputUnit}`;
+                            itemPrice = item.pricePerRod;
+                        } else if (item.pricePerKg) {
+                            // KG-selling brand: show price per kg
+                            itemPrice = item.pricePerKg;
+                            if (item.inputUnit === 'kg') {
+                                quantityDisplay = `${item.convertedKg?.toFixed(2)} kg`;
+                            } else {
+                                quantityDisplay = `${item.inputQty} ${item.inputUnit} (${item.convertedKg?.toFixed(2)} kg)`;
+                            }
+                        } else {
+                            // NOS-selling brand (like Tata)
+                            quantityDisplay = `${item.inputQty} ${item.inputUnit}`;
+                            itemPrice = item.pricePerRod;
+                        }
 
                         return (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
@@ -70,7 +86,7 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                                     <div className="text-xs text-slate-500">{item.brand === 'Other' ? '' : `${item.brand} - `}{item.size || ''}</div>
                                 </td>
                                 <td className="py-3 px-4 text-right text-sm text-slate-600">
-                                    {item.inputQty} {item.inputUnit}
+                                    {quantityDisplay}
                                 </td>
                                 <td className="py-3 px-4 text-right text-sm text-slate-600">
                                     ₹{itemPrice?.toFixed(2)}

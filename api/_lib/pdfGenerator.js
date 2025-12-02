@@ -112,15 +112,33 @@ const generateQuotePDF = (quote) => {
                 const isInventory = item.brand === 'Other';
                 const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
 
-                // Determine which price to show based on the input unit
-                let itemPrice;
+                // For kg-selling brands, show both input unit and kg weight
+                let quantityDisplay, unitDisplay, itemPrice;
+
                 if (isInventory) {
+                    // Inventory: show as-is
+                    quantityDisplay = formatNumber(item.inputQty);
+                    unitDisplay = item.inputUnit;
                     itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`;
                 } else {
-                    // For steel: if unit is kg, show pricePerKg; otherwise show pricePerRod
-                    if (item.inputUnit === 'kg' && item.pricePerKg) {
-                        itemPrice = `${formatCurrency(item.pricePerKg)}/${item.inputUnit}`;
+                    // Steel brands
+                    if (item.pricePerKg) {
+                        // Sells by KG - always show price per kg
+                        itemPrice = `${formatCurrency(item.pricePerKg)}/kg`;
+
+                        if (item.inputUnit === 'kg') {
+                            // Input was kg, show as-is
+                            quantityDisplay = formatNumber(item.convertedKg);
+                            unitDisplay = 'kg';
+                        } else {
+                            // Input was nos/bundles, show both
+                            quantityDisplay = `${formatNumber(item.inputQty)} ${item.inputUnit}`;
+                            unitDisplay = `(${formatNumber(item.convertedKg)} kg)`;
+                        }
                     } else {
+                        // Sells by NOS (like Tata)  
+                        quantityDisplay = formatNumber(item.inputQty);
+                        unitDisplay = item.inputUnit || 'nos';
                         itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit || 'rod'}`;
                     }
                 }
@@ -129,8 +147,8 @@ const generateQuotePDF = (quote) => {
                     .text(index + 1, 45, y)
                     .text(itemName, 85, y, { width: 110 })
                     .text(item.size || '-', 200, y)
-                    .text(formatNumber(item.inputQty), 260, y)
-                    .text(item.inputUnit || 'kg', 320, y)
+                    .text(quantityDisplay, 260, y, { width: 55 })
+                    .text(unitDisplay, 320, y, { width: 55 })
                     .text(itemPrice, 380, y, { width: 100 })
                     .text(formatCurrency(item.amount), 490, y, { width: 70, align: 'right' });
 
