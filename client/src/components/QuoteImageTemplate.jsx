@@ -89,7 +89,13 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                                     {quantityDisplay}
                                 </td>
                                 <td className="py-3 px-4 text-right text-sm text-slate-600">
-                                    ₹{itemPrice?.toFixed(2)}
+                                    {isInventory ? (
+                                        `₹${itemPrice?.toFixed(2)}/${item.inputUnit}`
+                                    ) : item.pricePerKg ? (
+                                        `₹${itemPrice?.toFixed(2)}/kg`
+                                    ) : (
+                                        `₹${itemPrice?.toFixed(2)}/nos`
+                                    )}
                                 </td>
                                 <td className="py-3 px-4 text-right text-sm font-medium text-slate-800">
                                     ₹{item.amount?.toFixed(2)}

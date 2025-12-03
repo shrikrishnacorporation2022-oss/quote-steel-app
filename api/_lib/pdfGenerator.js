@@ -136,10 +136,10 @@ const generateQuotePDF = (quote) => {
                             unitDisplay = `(${formatNumber(item.convertedKg)} kg)`;
                         }
                     } else {
-                        // Sells by NOS (like Tata)  
+                        // Sells by NOS (like Tata) - always show price per nos
                         quantityDisplay = formatNumber(item.inputQty);
                         unitDisplay = item.inputUnit || 'nos';
-                        itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit || 'rod'}`;
+                        itemPrice = `${formatCurrency(item.pricePerRod)}/nos`;
                     }
                 }
 
