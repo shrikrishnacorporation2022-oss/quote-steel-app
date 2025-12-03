@@ -103,6 +103,17 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
             {/* Totals */}
             <div className="flex justify-end">
                 <div className="w-64 space-y-3">
+                    <div className="flex justify-between text-slate-600 font-medium">
+                        <span>Total Weight:</span>
+                        <span>{quote.items.reduce((sum, item) => {
+                            const isInventory = item.brand === 'Other';
+                            if (isInventory) {
+                                return item.inputUnit === 'kg' ? sum + (parseFloat(item.inputQty) || 0) : sum;
+                            } else {
+                                return sum + (item.convertedKg || 0);
+                            }
+                        }, 0).toFixed(2)} kg</span>
+                    </div>
                     <div className="flex justify-between text-slate-600">
                         <span>Subtotal:</span>
                         <span>₹{quote.subtotal?.toFixed(2)}</span>

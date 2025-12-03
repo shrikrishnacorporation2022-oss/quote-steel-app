@@ -183,6 +183,16 @@ const generateQuotePDF = (quote) => {
             const totalsX = 360;
             let totalsY = y + 20;
 
+            // Calculate total weight
+            const totalWeight = items.reduce((sum, item) => {
+                const isInventory = item.brand === 'Other';
+                if (isInventory) {
+                    return item.inputUnit === 'kg' ? sum + (parseFloat(item.inputQty) || 0) : sum;
+                } else {
+                    return sum + (item.convertedKg || 0);
+                }
+            }, 0);
+
             // Calculate taxable total (before transport and loading)
             const taxableTotal = (quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0);
             const hasNonTaxableCharges = (quote.transportCharges > 0) || (quote.loadingUnloadingCharges > 0);
@@ -192,6 +202,7 @@ const generateQuotePDF = (quote) => {
             if (quote.onlineDiscountAmount > 0) boxHeight += 20;
             if (quote.offlineDiscountAmount > 0) boxHeight += 20;
             if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) boxHeight += 20;
+            boxHeight += 20; // For Total Weight
             if (hasNonTaxableCharges) boxHeight += 20; // For "Total (Tax Inclusive)" line
             if (quote.transportCharges > 0) boxHeight += 20;
             if (quote.loadingUnloadingCharges > 0) boxHeight += 20;
@@ -203,6 +214,11 @@ const generateQuotePDF = (quote) => {
             doc.fillColor(secondaryColor)
                 .fontSize(10)
                 .font('Helvetica');
+
+            // Total Weight
+            doc.text('Total Weight:', totalsX, totalsY)
+                .text(`${totalWeight.toFixed(2)} kg`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+            totalsY += 20;
 
             // Steel Subtotal (if mixed items)
             if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) {

@@ -27,6 +27,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
   const [offlineDiscountPercent, setOfflineDiscountPercent] = useState(0);
   const [transportCharges, setTransportCharges] = useState(0);
   const [loadingUnloadingCharges, setLoadingUnloadingCharges] = useState(0);
+  const [loadingRate, setLoadingRate] = useState(''); // Rate per kg for loading
   const [saving, setSaving] = useState(false);
   const [quoteForImage, setQuoteForImage] = useState(null);
   const imageTemplateRef = React.useRef(null);
@@ -63,6 +64,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       setLoadingUnloadingCharges(initialData.loadingUnloadingCharges || 0);
       setTransportCharges(initialData.transportCharges || 0);
       setLoadingUnloadingCharges(initialData.loadingUnloadingCharges || 0);
+      setLoadingRate(initialData.loadingRate || '');
 
       // 3. Steel Items (Convert Array -> Object)
       const steelItems = {};
@@ -227,6 +229,30 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
     }
   };
 
+  const calculateTotalWeight = () => {
+    const steelWeight = Object.values(items).reduce((sum, item) => sum + (item.convertedKg || 0), 0);
+    const inventoryWeight = quoteProducts.reduce((sum, item) => {
+      // Only include inventory items if unit is explicitly 'kg'
+      if (item.unit === 'kg') {
+        return sum + (parseFloat(item.inputQty) || 0);
+      }
+      return sum;
+    }, 0);
+    return steelWeight + inventoryWeight;
+  };
+
+  const totalWeight = calculateTotalWeight();
+
+  // Auto-calculate loading charges when rate or weight changes
+  useEffect(() => {
+    if (loadingRate && totalWeight > 0) {
+      const rate = parseFloat(loadingRate);
+      if (!isNaN(rate)) {
+        setLoadingUnloadingCharges(Math.round(totalWeight * rate));
+      }
+    }
+  }, [loadingRate, totalWeight]);
+
   const calculateTotals = () => {
     const steelTotal = Object.values(items).reduce((sum, item) => sum + (item.amount || 0), 0);
     const productTotal = quoteProducts.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -299,7 +325,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       loadingUnloadingCharges: parseFloat(loadingUnloadingCharges) || 0,
       subtotal,
       total,
-      notes
+      notes,
+      loadingRate // Save loading rate to restore it later
     };
 
     setSaving(true);
@@ -318,6 +345,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       setNotes('');
       setOnlineDiscountPercent(0);
       setOfflineDiscountPercent(0);
+      setLoadingRate(''); // Reset loading rate
+      setLoadingUnloadingCharges(0);
+      setTransportCharges(0);
 
       if (onSaveComplete) {
         onSaveComplete(quoteData.quoteNo); // Pass quote number for scroll/highlight
@@ -733,14 +763,20 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
 
       {/* Additional Charges Section */}
       <div className="card p-6">
-        <label className="block text-sm font-medium text-slate-700 mb-3">
-          Additional Charges
-        </label>
+        <div className="flex justify-between items-center mb-3">
+          <label className="block text-sm font-medium text-slate-700">
+            Additional Charges
+          </label>
+          <div className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+            Total Weight: {totalWeight.toFixed(2)} kg
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Transport Charges */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <div className="flex justify-between items-center mb-2">
               <span className="font-medium text-slate-700">Transport Charges</span>
+              <span className="text-xs text-slate-500">(Weight: {totalWeight.toFixed(2)} kg)</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-slate-600">₹</span>
@@ -761,17 +797,37 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
             <div className="flex justify-between items-center mb-2">
               <span className="font-medium text-slate-700">Loading/Unloading</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-600">₹</span>
-              <input
-                type="number"
-                step="1"
-                min="0"
-                value={loadingUnloadingCharges}
-                onChange={e => setLoadingUnloadingCharges(parseFloat(e.target.value) || 0)}
-                className="input-field w-full"
-                placeholder="0"
-              />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-1">
+                <label className="text-xs text-slate-500 block mb-1">Rate (₹/kg)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={loadingRate}
+                  onChange={e => setLoadingRate(e.target.value)}
+                  className="input-field w-full text-sm"
+                  placeholder="Rate"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-slate-500 block mb-1">Total Amount</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-600">₹</span>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={loadingUnloadingCharges}
+                    onChange={e => {
+                      setLoadingUnloadingCharges(parseFloat(e.target.value) || 0);
+                      setLoadingRate(''); // Clear rate if manual override
+                    }}
+                    className="input-field w-full"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
