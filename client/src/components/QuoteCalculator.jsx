@@ -304,6 +304,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
           convertedBundles: item.convertedBundles,
           pricePerKg: item.pricePerKg,
           pricePerRod: item.pricePerRod,
+          sellsInNos: selectedBrand?.sellsInNos || false, // Add flag to identify pricing method
           amount: item.amount
         })),
         ...quoteProducts.map(item => ({

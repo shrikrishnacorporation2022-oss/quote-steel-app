@@ -121,8 +121,13 @@ const generateQuotePDF = (quote) => {
                     unitDisplay = item.inputUnit;
                     itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`;
                 } else {
-                    // Steel brands
-                    if (item.pricePerKg) {
+                    // Steel brands - check sellsInNos flag to determine pricing method
+                    if (item.sellsInNos) {
+                        // Sells by NOS (like Tata) - always show price per nos
+                        quantityDisplay = formatNumber(item.inputQty);
+                        unitDisplay = item.inputUnit || 'nos';
+                        itemPrice = `${formatCurrency(item.pricePerRod)}/nos`;
+                    } else {
                         // Sells by KG - always show price per kg
                         itemPrice = `${formatCurrency(item.pricePerKg)}/kg`;
 
@@ -135,11 +140,6 @@ const generateQuotePDF = (quote) => {
                             quantityDisplay = `${formatNumber(item.inputQty)} ${item.inputUnit}`;
                             unitDisplay = `(${formatNumber(item.convertedKg)} kg)`;
                         }
-                    } else {
-                        // Sells by NOS (like Tata) - always show price per nos
-                        quantityDisplay = formatNumber(item.inputQty);
-                        unitDisplay = item.inputUnit || 'nos';
-                        itemPrice = `${formatCurrency(item.pricePerRod)}/nos`;
                     }
                 }
 

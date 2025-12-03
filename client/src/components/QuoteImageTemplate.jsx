@@ -65,7 +65,11 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                         if (isInventory) {
                             quantityDisplay = `${item.inputQty} ${item.inputUnit}`;
                             itemPrice = item.pricePerRod;
-                        } else if (item.pricePerKg) {
+                        } else if (item.sellsInNos) {
+                            // NOS-selling brand (like Tata) - use pricePerRod
+                            quantityDisplay = `${item.inputQty} ${item.inputUnit}`;
+                            itemPrice = item.pricePerRod;
+                        } else {
                             // KG-selling brand: show price per kg
                             itemPrice = item.pricePerKg;
                             if (item.inputUnit === 'kg') {
@@ -73,10 +77,6 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                             } else {
                                 quantityDisplay = `${item.inputQty} ${item.inputUnit} (${item.convertedKg?.toFixed(2)} kg)`;
                             }
-                        } else {
-                            // NOS-selling brand (like Tata)
-                            quantityDisplay = `${item.inputQty} ${item.inputUnit}`;
-                            itemPrice = item.pricePerRod;
                         }
 
                         return (
@@ -91,10 +91,10 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                                 <td className="py-3 px-4 text-right text-sm text-slate-600">
                                     {isInventory ? (
                                         `₹${itemPrice?.toFixed(2)}/${item.inputUnit}`
-                                    ) : item.pricePerKg ? (
-                                        `₹${itemPrice?.toFixed(2)}/kg`
-                                    ) : (
+                                    ) : item.sellsInNos ? (
                                         `₹${itemPrice?.toFixed(2)}/nos`
+                                    ) : (
+                                        `₹${itemPrice?.toFixed(2)}/kg`
                                     )}
                                 </td>
                                 <td className="py-3 px-4 text-right text-sm font-medium text-slate-800">
