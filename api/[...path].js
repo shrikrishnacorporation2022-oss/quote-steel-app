@@ -155,7 +155,7 @@ module.exports = async (req, res) => {
                 if (!file) return res.status(400).json({ message: 'No file uploaded' });
 
                 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
 
                 const prompt = `
                     Extract data from this vendor invoice/quote into a structured JSON format.
