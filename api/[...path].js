@@ -155,7 +155,7 @@ module.exports = async (req, res) => {
                 if (!file) return res.status(400).json({ message: 'No file uploaded' });
 
                 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
                 const prompt = `
                     Extract data from this vendor invoice/quote into a structured JSON format.
@@ -200,7 +200,7 @@ module.exports = async (req, res) => {
 
             } catch (error) {
                 console.error('Extraction Error:', error);
-                return res.status(500).json({ message: 'Extraction failed: ' + error.message });
+                return res.status(500).json({ message: 'EXTRACTION_FAILED_V3: ' + error.message });
             }
         }
 

@@ -83,7 +83,7 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
 
     } catch (error) {
         console.error('Extraction Error:', error);
-        res.status(500).json({ message: 'Error extracting data: ' + error.message });
+        res.status(500).json({ message: 'LOCAL_EXTRACTION_FAILED_V3: ' + error.message });
 
         // Cleanup on error
         if (req.file) {
