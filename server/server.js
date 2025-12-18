@@ -38,6 +38,7 @@ app.use(session({
 console.log('Registering API routes...');
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api', require('./routes/api'));
+app.use('/api/extraction', require('./routes/extraction'));
 
 // Basic Route
 app.get('/', (req, res) => {

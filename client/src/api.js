@@ -162,3 +162,15 @@ export const deleteQuotesBulk = async (ids) => {
     });
     return handleResponse(res);
 };
+
+// --- EXTRACTION ---
+export const extractVendorQuote = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${API_URL}/extraction/extract-quote`, {
+        method: 'POST',
+        body: formData
+    });
+    return handleResponse(res);
+};

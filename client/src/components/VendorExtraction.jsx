@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Upload, FileText, Plus, Percent, DollarSign, ArrowRight, Loader2, Trash2 } from 'lucide-react';
+import { Upload, FileText, Plus, Percent, DollarSign, ArrowRight, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { extractVendorQuote } from '../api';
 
 const VendorExtraction = ({ onImport }) => {
     const [file, setFile] = useState(null);
     const [processing, setProcessing] = useState(false);
     const [extractedData, setExtractedData] = useState(null);
+    const [error, setError] = useState(null);
     const [adjustments, setAdjustments] = useState({
         percent: 0,
         fixed: 0
@@ -16,19 +18,17 @@ const VendorExtraction = ({ onImport }) => {
 
         setFile(uploadedFile);
         setProcessing(true);
+        setError(null);
 
-        // Simulate API call for extraction
-        // In real implementation, this would call /api/extract-quote
-        setTimeout(() => {
-            setExtractedData({
-                vendor: 'ABC Steel vendor',
-                items: [
-                    { description: '8mm TMT', qty: 1000, unit: 'kg', rate: 50, hsn: '7214' },
-                    { description: '10mm TMT', qty: 2000, unit: 'kg', rate: 48, hsn: '7214' },
-                ]
-            });
+        try {
+            const data = await extractVendorQuote(uploadedFile);
+            setExtractedData(data);
+        } catch (err) {
+            console.error('Extraction error:', err);
+            setError(err.message || 'Failed to extract data from vendor document.');
+        } finally {
             setProcessing(false);
-        }, 2000);
+        }
     };
 
     const handleItemChange = (index, field, value) => {
@@ -67,21 +67,30 @@ const VendorExtraction = ({ onImport }) => {
 
     if (!extractedData) {
         return (
-            <div className="relative group">
-                <input
-                    type="file"
-                    onChange={handleFileUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    accept="image/*,.pdf"
-                />
-                <div className="flex flex-col items-center justify-center p-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 group-hover:border-indigo-500 group-hover:bg-indigo-50 transition-all duration-300">
-                    <div className="bg-white p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform duration-300">
-                        <Upload className="w-8 h-8 text-indigo-600" />
+            <div className="flex flex-col gap-4">
+                {error && (
+                    <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 animate-slide-in">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                        <p className="text-sm font-medium">{error}</p>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Vendor Quote</h3>
-                    <p className="text-slate-500 text-center max-w-xs">
-                        Drag and drop your vendor's Image or PDF here to automatically extract items and prices.
-                    </p>
+                )}
+
+                <div className="relative group">
+                    <input
+                        type="file"
+                        onChange={handleFileUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        accept="image/*,.pdf"
+                    />
+                    <div className="flex flex-col items-center justify-center p-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 group-hover:border-indigo-500 group-hover:bg-indigo-50 transition-all duration-300">
+                        <div className="bg-white p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform duration-300">
+                            <Upload className="w-8 h-8 text-indigo-600" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Vendor Quote</h3>
+                        <p className="text-slate-500 text-center max-w-xs">
+                            Drag and drop your vendor's Image or PDF here to automatically extract items and prices.
+                        </p>
+                    </div>
                 </div>
             </div>
         );
