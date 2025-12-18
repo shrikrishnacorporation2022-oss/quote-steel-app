@@ -32,7 +32,7 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
         const base64File = fileBuffer.toString('base64');
 
         // Prepare Gemini model
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `
             Extract data from this vendor invoice/quote into a structured JSON format.
