@@ -6,6 +6,7 @@ const WeightProfile = require('./_lib/models/WeightProfile');
 const pdfGenerator = require('./_lib/pdfGenerator');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Busboy = require('busboy');
+const { uploadToDrive } = require('./_lib/drive');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const cookie = require('cookie');
@@ -168,13 +169,15 @@ module.exports = async (req, res) => {
                         - description: Name/description of the product
                         - qty: Numerical quantity
                         - unit: Unit (e.g., kg, nos, bundle, pcs)
-                        - rate: Unit price/rate
+                        - rate: Unit price/rate (Base rate excluding tax if possible)
+                        - taxRate: GST/Tax percentage for this item (e.g., 18 or 12)
                         - hsn: HSN/SAC code if available
                         
                     Rules:
                     - Try to clean up descriptions (e.g., remove serial numbers if they are separate).
-                    - Ensure qty and rate are numbers.
+                    - Ensure qty, rate, and taxRate are numbers.
                     - If a field is missing, use null.
+                    - If taxRate is not found, use null (do not guess unless it is explicitly mentioned for the item).
                     - Focus on the main items being quoted or sold.
                 `;
 
@@ -196,7 +199,15 @@ module.exports = async (req, res) => {
                     throw new Error('Failed to parse AI response into JSON');
                 }
 
-                return res.json(JSON.parse(jsonMatch[0]));
+                const extractedData = JSON.parse(jsonMatch[0]);
+
+                // 3. Upload file to Google Drive (Permanent Storage)
+                const driveResult = await uploadToDrive(file.data, `vendor_${Date.now()}_${file.name}`, file.mimeType);
+                if (driveResult) {
+                    extractedData.vendorBillUrl = driveResult.link;
+                }
+
+                return res.json(extractedData);
 
             } catch (error) {
                 console.error('Extraction Error:', error);

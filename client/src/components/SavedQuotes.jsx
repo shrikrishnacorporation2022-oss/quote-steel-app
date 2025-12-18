@@ -297,6 +297,24 @@ function SavedQuotes({ onEdit, recentQuoteNo }) {
                                             hour: '2-digit', minute: '2-digit'
                                         })}
                                     </p>
+                                    {quote.extractedData && (
+                                        <div className="mt-2 flex items-center justify-between">
+                                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                                                <FileText className="w-3 h-3" />
+                                                Import: {quote.extractedData.vendor || 'Vendor Bill'}
+                                            </div>
+                                            {quote.vendorBillUrl && (
+                                                <a
+                                                    href={quote.vendorBillUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1"
+                                                >
+                                                    View Bill
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

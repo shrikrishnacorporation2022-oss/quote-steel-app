@@ -34,6 +34,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
   const imageTemplateRef = React.useRef(null);
   const [globalUnit, setGlobalUnit] = useState('kg'); // Global unit for kg-selling brands
   const [entryMode, setEntryMode] = useState('manual'); // 'manual' or 'vendor'
+  const [vendorMetadata, setVendorMetadata] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -65,6 +66,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       setTransportCharges(initialData.transportCharges || 0);
       setLoadingUnloadingCharges(initialData.loadingUnloadingCharges || 0);
       setLoadingRate(initialData.loadingRate || '');
+      if (initialData.extractedData) {
+        setVendorMetadata(initialData.extractedData);
+      }
 
       // 3. Steel Items (Convert Array -> Object)
       const steelItems = {};
@@ -212,7 +216,17 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
     setQuoteProducts(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleVendorImport = (importedItems) => {
+  const handleVendorImport = (payload) => {
+    const { items: importedItems, vendor, date, vendorBillUrl } = payload;
+
+    // Store metadata for saving
+    setVendorMetadata({
+      vendor,
+      date,
+      vendorBillUrl,
+      importedAt: new Date().toISOString()
+    });
+
     // Process imported items
     const newInventory = [...quoteProducts];
 
@@ -354,7 +368,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       subtotal,
       total,
       notes,
-      loadingRate // Save loading rate to restore it later
+      loadingRate, // Save loading rate to restore it later
+      extractedData: vendorMetadata, // Save vendor metadata
+      vendorBillUrl: vendorMetadata?.vendorBillUrl // Explicitly save link for quick access
     };
 
     setSaving(true);
@@ -371,6 +387,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       setItems({});
       setQuoteProducts([]);
       setNotes('');
+      setVendorMetadata(null);
       setOnlineDiscountPercent(0);
       setOfflineDiscountPercent(0);
       setLoadingRate(''); // Reset loading rate
@@ -398,6 +415,28 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
         </h1>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
           <p className="text-slate-600">Build your quotation with ease</p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {vendorMetadata && (
+              <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100 animate-fade-in shadow-sm">
+                <div className="flex items-center gap-1.5 border-r border-emerald-200 pr-3">
+                  <FileText className="w-4 h-4" />
+                  Import: {vendorMetadata.vendor || 'Vendor Bill'}
+                </div>
+                {vendorMetadata.vendorBillUrl && (
+                  <a
+                    href={vendorMetadata.vendorBillUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 hover:text-emerald-900 transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>View Bill</span>
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
             <button
               onClick={() => setEntryMode('manual')}

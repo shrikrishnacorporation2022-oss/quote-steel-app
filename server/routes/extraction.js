@@ -2,12 +2,11 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const path = require('path');
-const fs = require('fs');
+const { uploadToDrive } = require('../../api/_lib/drive');
 
-// Configure Multer for file uploads
+// Configure Multer for file uploads (using memory storage for direct processing)
 const upload = multer({
-    dest: 'uploads/',
+    storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
@@ -24,11 +23,8 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
             return res.status(500).json({ message: 'Gemini API Key missing on server' });
         }
 
-        const filePath = req.file.path;
+        const fileBuffer = req.file.buffer;
         const mimeType = req.file.mimetype;
-
-        // Convert file to base64
-        const fileBuffer = fs.readFileSync(filePath);
         const base64File = fileBuffer.toString('base64');
 
         // Prepare Gemini model
@@ -45,13 +41,15 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
                 - description: Name/description of the product
                 - qty: Numerical quantity
                 - unit: Unit (e.g., kg, nos, bundle, pcs)
-                - rate: Unit price/rate
+                - rate: Unit price/rate (Base rate excluding tax if possible)
+                - taxRate: GST/Tax percentage for this item (e.g., 18 or 12)
                 - hsn: HSN/SAC code if available
                 
             Rules:
             - Try to clean up descriptions (e.g., remove serial numbers if they are separate).
-            - Ensure qty and rate are numbers.
+            - Ensure qty, rate, and taxRate are numbers.
             - If a field is missing, use null.
+            - If taxRate is not found, use null (do not guess unless it is explicitly mentioned for the item).
             - Focus on the main items being quoted or sold.
         `;
 
@@ -68,7 +66,7 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
         const response = await result.response;
         const text = response.text();
 
-        // Extract JSON from response (sometimes Gemini wraps it in code blocks)
+        // Extract JSON from response
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
             throw new Error('Failed to parse AI response into JSON');
@@ -76,19 +74,17 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
 
         const extractedData = JSON.parse(jsonMatch[0]);
 
-        // Cleanup: delete uploaded file
-        fs.unlinkSync(filePath);
+        // 3. Upload file to Google Drive (Permanent Storage)
+        const driveResult = await uploadToDrive(fileBuffer, `vendor_${Date.now()}_${req.file.originalname}`, mimeType);
+        if (driveResult) {
+            extractedData.vendorBillUrl = driveResult.link;
+        }
 
         res.json(extractedData);
 
     } catch (error) {
         console.error('Extraction Error:', error);
-        res.status(500).json({ message: 'LOCAL_EXTRACTION_FAILED_V3: ' + error.message });
-
-        // Cleanup on error
-        if (req.file) {
-            try { fs.unlinkSync(req.file.path); } catch (e) { }
-        }
+        res.status(500).json({ message: 'LOCAL_EXTRACTION_FAILED_V4: ' + error.message });
     }
 });
 

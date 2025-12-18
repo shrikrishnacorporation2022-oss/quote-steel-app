@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileText, Plus, Percent, DollarSign, ArrowRight, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { Upload, X, Check, Loader2, Plus, DollarSign, Percent, Trash2, AlertCircle, Hash, ArrowRight } from 'lucide-react';
 import { extractVendorQuote } from '../api';
 
 const VendorExtraction = ({ onImport }) => {
@@ -9,7 +9,8 @@ const VendorExtraction = ({ onImport }) => {
     const [error, setError] = useState(null);
     const [adjustments, setAdjustments] = useState({
         percent: 0,
-        fixed: 0
+        fixed: 0,
+        globalGst: 18
     });
 
     const handleFileUpload = async (e) => {
@@ -38,6 +39,22 @@ const VendorExtraction = ({ onImport }) => {
         }));
     };
 
+    const handleImport = () => {
+        const processedItems = extractedData.items.map(item => {
+            const pricing = calculateAdjustedRate(item);
+            return {
+                ...item,
+                rate: pricing.final // Use the tax-inclusive rate
+            };
+        });
+        onImport({
+            items: processedItems,
+            vendor: extractedData.vendor,
+            date: extractedData.date,
+            vendorBillUrl: extractedData.vendorBillUrl
+        });
+    };
+
     const removeItem = (index) => {
         setExtractedData(prev => ({
             ...prev,
@@ -45,15 +62,26 @@ const VendorExtraction = ({ onImport }) => {
         }));
     };
 
-    const calculateAdjustedRate = (rate) => {
-        let newRate = parseFloat(rate) || 0;
+    const calculateAdjustedRate = (item) => {
+        let baseRate = parseFloat(item.rate) || 0;
+
+        // 1. Apply price adjustments to the base rate
         if (adjustments.percent > 0) {
-            newRate += newRate * (parseFloat(adjustments.percent) / 100);
+            baseRate += baseRate * (parseFloat(adjustments.percent) / 100);
         }
         if (adjustments.fixed > 0) {
-            newRate += parseFloat(adjustments.fixed);
+            baseRate += parseFloat(adjustments.fixed);
         }
-        return newRate.toFixed(2);
+
+        // 2. Apply GST (either item-wise or global fallback)
+        const gstRate = (item.taxRate !== null && item.taxRate !== undefined) ? parseFloat(item.taxRate) : (parseFloat(adjustments.globalGst) || 0);
+        const finalRate = baseRate * (1 + gstRate / 100);
+
+        return {
+            base: baseRate.toFixed(2),
+            gst: gstRate,
+            final: finalRate.toFixed(2)
+        };
     };
 
     if (processing) {
@@ -145,79 +173,108 @@ const VendorExtraction = ({ onImport }) => {
                             />
                         </div>
                     </div>
+                    {/* New Global Tax/GST % input */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                            <Plus className="w-4 h-4 text-indigo-600" />
+                            Global Tax/GST %
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                value={adjustments.globalGst}
+                                onChange={(e) => setAdjustments({ ...adjustments, globalGst: e.target.value })}
+                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none"
+                                placeholder="18"
+                            />
+                            <Percent className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full">
-                    <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">Item</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">Qty</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">Vendor Rate</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">New Rate</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {extractedData.items.map((item, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4">
-                                    <input
-                                        type="text"
-                                        value={item.description}
-                                        onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                                        className="w-full bg-transparent border-none focus:ring-0 text-slate-800 font-bold p-0"
-                                    />
-                                    <div className="text-xs text-slate-500">HSN: {item.hsn}</div>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <input
-                                            type="number"
-                                            value={item.qty}
-                                            onChange={(e) => handleItemChange(idx, 'qty', e.target.value)}
-                                            className="w-16 bg-transparent border-none focus:ring-0 text-right text-slate-600 font-medium p-0"
-                                        />
-                                        <span className="text-xs text-slate-400">{item.unit}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <span className="text-slate-400">₹</span>
-                                        <input
-                                            type="number"
-                                            value={item.rate}
-                                            onChange={(e) => handleItemChange(idx, 'rate', e.target.value)}
-                                            className="w-20 bg-transparent border-none focus:ring-0 text-right text-slate-500 p-0"
-                                        />
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <span className="bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-lg border border-emerald-100">
-                                        ₹{calculateAdjustedRate(item.rate)}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <button
-                                        onClick={() => removeItem(idx)}
-                                        className="text-slate-400 hover:text-red-500 transition-colors"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </td>
+                <div className="mt-8 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr className="bg-slate-100/50">
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider rounded-tl-xl">Item Description</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Vendor Rate</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">GST %</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Final (Incl.)</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider rounded-tr-xl">Action</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {extractedData.items.map((item, index) => {
+                                const pricing = calculateAdjustedRate(item);
+                                return (
+                                    <tr key={index} className="group hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-4 py-3">
+                                            <input
+                                                type="text"
+                                                value={item.description}
+                                                onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                                className="w-full bg-transparent border-none focus:ring-1 focus:ring-indigo-300 rounded px-1 text-slate-700 font-medium outline-none"
+                                            />
+                                            <div className="text-xs text-slate-500">HSN: {item.hsn}</div> {/* Kept HSN */}
+                                        </td>
+                                        <td className="px-4 py-3 w-20">
+                                            <input
+                                                type="number"
+                                                value={item.qty}
+                                                onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
+                                                className="w-full bg-transparent border-none focus:ring-1 focus:ring-indigo-300 rounded px-1 text-slate-700 outline-none"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3 w-20 uppercase text-xs font-bold text-slate-500">{item.unit || 'nos'}</td>
+                                        <td className="px-4 py-3 w-32">
+                                            <div className="flex items-center gap-1 font-mono text-slate-600">
+                                                <span>₹</span>
+                                                <input
+                                                    type="number"
+                                                    value={item.rate}
+                                                    onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
+                                                    className="w-full bg-transparent border-none focus:ring-1 focus:ring-indigo-300 rounded px-1 text-slate-900 font-bold outline-none"
+                                                />
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 w-24">
+                                            <div className="flex items-center gap-1">
+                                                <input
+                                                    type="number"
+                                                    value={item.taxRate !== null && item.taxRate !== undefined ? item.taxRate : adjustments.globalGst}
+                                                    onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
+                                                    className="w-full bg-indigo-50/50 border border-indigo-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded px-2 py-1 text-indigo-700 font-bold outline-none transition-all placeholder:text-indigo-200"
+                                                    placeholder={adjustments.globalGst}
+                                                />
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="text-indigo-600 font-black text-lg">₹{pricing.final}</span>
+                                                <span className="text-[10px] text-slate-400 font-medium">Base: ₹{pricing.base} + {pricing.gst}%</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <button
+                                                onClick={() => removeItem(index)}
+                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end">
                 <button
-                    onClick={() => onImport(extractedData.items.map(item => ({
-                        ...item,
-                        rate: calculateAdjustedRate(item.rate)
-                    })))}
+                    onClick={handleImport}
                     className="btn-primary"
                 >
                     Import into Quote
