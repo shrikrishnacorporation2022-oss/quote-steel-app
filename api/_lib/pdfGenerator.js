@@ -121,8 +121,15 @@ const generateQuotePDF = (quote) => {
                     unitDisplay = item.inputUnit;
                     itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`;
                 } else {
-                    // Steel brands - check sellsInNos flag to determine pricing method
-                    if (item.sellsInNos) {
+                    // Steel brands
+                    // Check for sellsInNos flag (new quotes) OR infer from data (old quotes)
+                    const brandName = (item.brand || '').toLowerCase().trim();
+                    const isTataBrand = brandName.includes('tata');
+
+                    // Heuristic for nos-based pricing
+                    const isNosBased = item.sellsInNos || isTataBrand || (item.inputUnit === 'nos' && item.pricePerRod > 0 && (!item.pricePerKg || item.pricePerKg > 1000));
+
+                    if (isNosBased) {
                         // Sells by NOS (like Tata) - always show price per nos
                         quantityDisplay = formatNumber(item.inputQty);
                         unitDisplay = item.inputUnit || 'nos';

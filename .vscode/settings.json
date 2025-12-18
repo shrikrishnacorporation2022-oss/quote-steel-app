@@ -1,0 +1,4 @@
+{
+    "json.schemastore.enable": false,
+    "css.lint.unknownAtRules": "ignore"
+}

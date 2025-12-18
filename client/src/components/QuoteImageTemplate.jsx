@@ -62,10 +62,16 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
 
                         // Calculate display values
                         let quantityDisplay, itemPrice;
+
+                        // Check for sellsInNos flag (new quotes) OR infer from data (old quotes)
+                        const brandName = (item.brand || '').toLowerCase().trim();
+                        const isTataBrand = brandName.includes('tata');
+                        const isNosBased = !isInventory && (item.sellsInNos || isTataBrand || (item.inputUnit === 'nos' && item.pricePerRod > 0));
+
                         if (isInventory) {
                             quantityDisplay = `${item.inputQty} ${item.inputUnit}`;
                             itemPrice = item.pricePerRod;
-                        } else if (item.sellsInNos) {
+                        } else if (isNosBased) {
                             // NOS-selling brand (like Tata) - use pricePerRod
                             quantityDisplay = `${item.inputQty} ${item.inputUnit}`;
                             itemPrice = item.pricePerRod;
@@ -91,7 +97,7 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                                 <td className="py-3 px-4 text-right text-sm text-slate-600">
                                     {isInventory ? (
                                         `₹${itemPrice?.toFixed(2)}/${item.inputUnit}`
-                                    ) : item.sellsInNos ? (
+                                    ) : isNosBased ? (
                                         `₹${itemPrice?.toFixed(2)}/nos`
                                     ) : (
                                         `₹${itemPrice?.toFixed(2)}/kg`
