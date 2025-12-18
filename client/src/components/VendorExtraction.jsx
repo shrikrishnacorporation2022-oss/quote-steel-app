@@ -44,7 +44,9 @@ const VendorExtraction = ({ onImport }) => {
             const pricing = calculateAdjustedRate(item);
             return {
                 ...item,
-                rate: pricing.final // Use the tax-inclusive rate
+                rate: pricing.final, // Use the tax-inclusive rate
+                baseRate: pricing.base,
+                taxRate: pricing.gst
             };
         });
         onImport({

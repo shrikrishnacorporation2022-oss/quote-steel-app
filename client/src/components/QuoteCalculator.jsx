@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchBrands, fetchProducts, createQuote, updateQuote, exportQuotePDF } from '../api';
 import { calculateItem } from '../utils/calculations';
-import { ChevronDown, ChevronUp, Plus, Trash2, Save, FileText, User, Phone, Mail, MapPin, Building2, Box } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2, Save, FileText, User, Phone, Mail, MapPin, Building2, Box, Download } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import QuoteImageTemplate from './QuoteImageTemplate';
 import VendorExtraction from './VendorExtraction';
@@ -118,6 +118,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
           unit: i.inputUnit,
           inputQty: i.inputQty,
           pricePerUnit: i.pricePerRod, // We stored unit price in pricePerRod for inventory
+          baseRate: i.baseRate,
+          taxRate: i.taxRate,
           amount: i.amount
         }));
       setQuoteProducts(inventoryItems);
@@ -235,7 +237,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       const matchedSize = SIZES.find(s => item.description.toLowerCase().includes(s.toLowerCase()));
 
       if (matchedSize) {
-        // Update steel items
+        // Update steel items 
+        // Note: For steel items, we still use brand pricing usually, 
+        // but we can store the vendor rate as reference in future.
         handleItemChange(matchedSize, 'inputQty', item.qty);
       } else {
         // 2. Add as a generic product
@@ -244,6 +248,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
           unit: item.unit,
           inputQty: item.qty,
           pricePerUnit: parseFloat(item.rate),
+          baseRate: parseFloat(item.baseRate),
+          taxRate: parseFloat(item.taxRate),
           amount: item.qty * item.rate
         });
       }
@@ -355,6 +361,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
           inputUnit: item.unit,
           inputQty: item.inputQty,
           pricePerRod: item.pricePerUnit, // Storing unit price here
+          baseRate: item.baseRate,
+          taxRate: item.taxRate,
           amount: item.amount
         }))
       ],
@@ -418,19 +426,19 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
 
           <div className="flex flex-wrap items-center gap-2">
             {vendorMetadata && (
-              <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100 animate-fade-in shadow-sm">
-                <div className="flex items-center gap-1.5 border-r border-emerald-200 pr-3">
+              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-lg animate-bounce-subtle border-2 border-emerald-400">
+                <div className="flex items-center gap-2 border-r border-emerald-400 pr-3">
                   <FileText className="w-4 h-4" />
-                  Import: {vendorMetadata.vendor || 'Vendor Bill'}
+                  <span>VENDOR IMPORT: {vendorMetadata.vendor || 'Bill'}</span>
                 </div>
                 {vendorMetadata.vendorBillUrl && (
                   <a
                     href={vendorMetadata.vendorBillUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 hover:text-emerald-900 transition-colors"
+                    className="flex items-center gap-1.5 hover:bg-emerald-500 px-2 py-1 rounded transition-all bg-emerald-700/50"
                   >
-                    <Mail className="w-3.5 h-3.5" />
+                    <Download className="w-3.5 h-3.5" />
                     <span>View Bill</span>
                   </a>
                 )}
@@ -765,6 +773,11 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
                             onChange={e => handleProductChange(index, 'pricePerUnit', parseFloat(e.target.value) || 0)}
                             className="input-field py-1.5 w-24"
                           />
+                          {(product.taxRate > 0 || product.baseRate > 0) && (
+                            <div className="text-[10px] text-emerald-600 font-bold mt-1">
+                              Base: ₹{parseFloat(product.baseRate || 0).toFixed(2)} + {product.taxRate}%
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 font-semibold text-emerald-600">
                           ₹{product.amount?.toFixed(2) || '0.00'}

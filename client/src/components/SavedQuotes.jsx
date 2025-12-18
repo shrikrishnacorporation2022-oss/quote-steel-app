@@ -270,7 +270,8 @@ function SavedQuotes({ onEdit, recentQuoteNo }) {
                             ref={el => quoteRefs.current[quote.quoteNo] = el}
                             className={`card p-6 space-y-4 hover:shadow-xl transition-all duration-500 group relative border-2 
                                 ${highlightQuoteNo === quote.quoteNo ? 'ring-2 ring-indigo-500 shadow-2xl scale-[1.02] bg-indigo-50' : ''}
-                                ${selectedQuotes.has(quote._id) ? 'border-indigo-500 bg-indigo-50/10' : 'border-transparent'}`}
+                                ${selectedQuotes.has(quote._id) ? 'border-indigo-500 bg-indigo-50/10' : 'border-transparent'}
+                                ${quote.extractedData ? 'border-emerald-200 bg-emerald-50/30 shadow-emerald-100/50' : ''}`}
                         >
                             {/* Selection Checkbox */}
                             <button
@@ -336,7 +337,7 @@ function SavedQuotes({ onEdit, recentQuoteNo }) {
                             <div className="border-t border-slate-100 pt-3 bg-slate-50/50 -mx-6 px-6 pb-2">
                                 <div className="flex items-center justify-between mt-2">
                                     <span className="text-sm text-slate-600">Total Amount:</span>
-                                    <span className="text-xl font-bold gradient-text">
+                                    <span className={`text-xl font-bold ${quote.extractedData ? 'text-emerald-700' : 'gradient-text'}`}>
                                         ₹{quote.total?.toFixed(2) || '0.00'}
                                     </span>
                                 </div>
@@ -346,7 +347,7 @@ function SavedQuotes({ onEdit, recentQuoteNo }) {
                             <div className="grid grid-cols-5 gap-2 pt-2">
                                 <button
                                     onClick={() => handleDownloadPDF(quote._id, quote.quoteNo)}
-                                    className="col-span-1 btn-primary py-2 text-xs flex flex-col items-center justify-center gap-1"
+                                    className={`col-span-1 py-2 text-xs flex flex-col items-center justify-center gap-1 btn-primary ${quote.extractedData ? 'bg-emerald-600 border-emerald-600 hover:bg-emerald-700' : ''}`}
                                     title="Download PDF"
                                 >
                                     <Download className="w-4 h-4" />
