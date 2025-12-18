@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileText, Plus, Percent, DollarSign, ArrowRight, Loader2 } from 'lucide-react';
+import { Upload, FileText, Plus, Percent, DollarSign, ArrowRight, Loader2, Trash2 } from 'lucide-react';
 
 const VendorExtraction = ({ onImport }) => {
     const [file, setFile] = useState(null);
