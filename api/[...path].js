@@ -4,6 +4,8 @@ const Product = require('./_lib/models/Product');
 const Quote = require('./_lib/models/Quote');
 const WeightProfile = require('./_lib/models/WeightProfile');
 const pdfGenerator = require('./_lib/pdfGenerator');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Busboy = require('busboy');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const cookie = require('cookie');
@@ -114,6 +116,92 @@ module.exports = async (req, res) => {
 
         if (req.method !== 'GET' && !isAuthenticated()) {
             return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        // ============ EXTRACTION ============
+        if (path === 'extraction/extract-quote' && req.method === 'POST') {
+            try {
+                if (!process.env.GEMINI_API_KEY) {
+                    return res.status(500).json({ message: 'GEMINI_API_KEY not configured on Vercel' });
+                }
+
+                // Helper to parse multipart form data in serverless
+                const parseMultipart = () => {
+                    return new Promise((resolve, reject) => {
+                        const busboy = Busboy({ headers: req.headers });
+                        const result = { file: null, fields: {} };
+
+                        busboy.on('file', (name, file, info) => {
+                            const { filename, mimeType } = info;
+                            const chunks = [];
+                            file.on('data', (data) => chunks.push(data));
+                            file.on('end', () => {
+                                result.file = { name, filename, mimeType, data: Buffer.concat(chunks) };
+                            });
+                        });
+
+                        busboy.on('field', (name, val) => {
+                            result.fields[name] = val;
+                        });
+
+                        busboy.on('finish', () => resolve(result));
+                        busboy.on('error', (err) => reject(err));
+
+                        req.pipe(busboy);
+                    });
+                };
+
+                const { file } = await parseMultipart();
+                if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+                const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+                const prompt = `
+                    Extract data from this vendor invoice/quote into a structured JSON format.
+                    Return ONLY the JSON object.
+                    
+                    Fields to extract:
+                    - vendor: Name of the vendor
+                    - date: Date of the invoice
+                    - items: An array of objects, each containing:
+                        - description: Name/description of the product
+                        - qty: Numerical quantity
+                        - unit: Unit (e.g., kg, nos, bundle, pcs)
+                        - rate: Unit price/rate
+                        - hsn: HSN/SAC code if available
+                        
+                    Rules:
+                    - Try to clean up descriptions (e.g., remove serial numbers if they are separate).
+                    - Ensure qty and rate are numbers.
+                    - If a field is missing, use null.
+                    - Focus on the main items being quoted or sold.
+                `;
+
+                const aiResult = await model.generateContent([
+                    prompt,
+                    {
+                        inlineData: {
+                            data: file.data.toString('base64'),
+                            mimeType: file.mimeType
+                        }
+                    }
+                ]);
+
+                const response = await aiResult.response;
+                const text = response.text();
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+                if (!jsonMatch) {
+                    throw new Error('Failed to parse AI response into JSON');
+                }
+
+                return res.json(JSON.parse(jsonMatch[0]));
+
+            } catch (error) {
+                console.error('Extraction Error:', error);
+                return res.status(500).json({ message: 'Extraction failed: ' + error.message });
+            }
         }
 
         // ============ BRANDS ============
