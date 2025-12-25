@@ -254,12 +254,23 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
     const newSteelItems = {};
 
     importedItems.forEach(item => {
-      const matchedSize = SIZES.find(s => item.description.toLowerCase().includes(s.toLowerCase()));
+      const qty = parseFloat(item.qty) || 0;
+      if (qty <= 0) return; // Skip items with no quantity
+
+      // Robust size matching: look for "20mm", "20 mm", "20 MM", etc.
+      const sizeMatch = item.description.match(/(\d+)\s*mm/i);
+      let matchedSize = null;
+      if (sizeMatch) {
+        const potentialSize = sizeMatch[1] + "mm";
+        if (SIZES.includes(potentialSize)) {
+          matchedSize = potentialSize;
+        }
+      }
 
       if (matchedSize) {
         // Prepare steel item
         const defaultUnit = selectedBrand?.sellsInNos ? 'nos' : globalUnit;
-        const baseItem = { size: matchedSize, inputUnit: defaultUnit, inputQty: item.qty };
+        const baseItem = { size: matchedSize, inputUnit: defaultUnit, inputQty: qty };
 
         if (selectedBrand) {
           const calculated = calculateItem(baseItem, {
@@ -275,11 +286,11 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
         newInventory.push({
           name: item.description,
           unit: item.unit || 'nos',
-          inputQty: item.qty,
+          inputQty: qty,
           pricePerUnit: parseFloat(item.rate) || 0,
           baseRate: parseFloat(item.baseRate) || 0,
           taxRate: parseFloat(item.taxRate) || 18,
-          amount: (item.qty || 0) * (item.rate || 0)
+          amount: qty * (parseFloat(item.rate) || 0)
         });
       }
     });
