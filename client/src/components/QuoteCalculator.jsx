@@ -223,7 +223,25 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
   const handleVendorImport = (payload) => {
     const { items: importedItems, vendor, date, vendorBillUrl } = payload;
 
-    // Store metadata for saving
+    // 1. Reset all previous quote data (Clean Slate)
+    setItems({});
+    setQuoteProducts([]);
+    setGlobalPrice('');
+    setOnlineDiscountPercent(0);
+    setOfflineDiscountPercent(0);
+    setTransportCharges(0);
+    setLoadingUnloadingCharges(0);
+    setAdditionalChargesTaxable(false);
+    setNotes('');
+    setCustomerDetails({
+      customerName: '',
+      customerPhone: '',
+      customerEmail: '',
+      customerAddress: '',
+      customerCompany: ''
+    });
+
+    // 2. Store metadata
     setVendorMetadata({
       vendor,
       date,
@@ -231,34 +249,44 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       importedAt: new Date().toISOString()
     });
 
-    // Process imported items
-    const newInventory = [...quoteProducts];
+    // 3. Process imported items into a clean state
+    const newInventory = [];
+    const newSteelItems = {};
 
     importedItems.forEach(item => {
-      // 1. Try to match with steel sizes (e.g., "8mm", "10mm")
       const matchedSize = SIZES.find(s => item.description.toLowerCase().includes(s.toLowerCase()));
 
       if (matchedSize) {
-        // Update steel items 
-        // Note: For steel items, we still use brand pricing usually, 
-        // but we can store the vendor rate as reference in future.
-        handleItemChange(matchedSize, 'inputQty', item.qty);
+        // Prepare steel item
+        const defaultUnit = selectedBrand?.sellsInNos ? 'nos' : globalUnit;
+        const baseItem = { size: matchedSize, inputUnit: defaultUnit, inputQty: item.qty };
+
+        if (selectedBrand) {
+          const calculated = calculateItem(baseItem, {
+            ...selectedBrand,
+            basePrice: globalPrice ? parseFloat(globalPrice) : selectedBrand.basePrice
+          });
+          newSteelItems[matchedSize] = { ...baseItem, ...calculated };
+        } else {
+          newSteelItems[matchedSize] = baseItem;
+        }
       } else {
-        // 2. Add as a generic product
+        // Add to inventory
         newInventory.push({
           name: item.description,
-          unit: item.unit,
+          unit: item.unit || 'nos',
           inputQty: item.qty,
-          pricePerUnit: parseFloat(item.rate),
-          baseRate: parseFloat(item.baseRate),
-          taxRate: parseFloat(item.taxRate),
-          amount: item.qty * item.rate
+          pricePerUnit: parseFloat(item.rate) || 0,
+          baseRate: parseFloat(item.baseRate) || 0,
+          taxRate: parseFloat(item.taxRate) || 18,
+          amount: (item.qty || 0) * (item.rate || 0)
         });
       }
     });
 
+    setItems(newSteelItems);
     setQuoteProducts(newInventory);
-    setEntryMode('manual'); // Switch back to calculator
+    setEntryMode('manual');
   };
 
   const handleReset = () => {
