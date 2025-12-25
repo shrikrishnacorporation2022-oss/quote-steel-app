@@ -326,11 +326,12 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       subtotal,
       onlineDiscountAmount,
       offlineDiscountAmount,
+      totalDiscount,
       total
     };
   };
 
-  const { steelTotal, productTotal, subtotal, onlineDiscountAmount, offlineDiscountAmount, total } = calculateTotals();
+  const { steelTotal, productTotal, subtotal, onlineDiscountAmount, offlineDiscountAmount, totalDiscount, total } = calculateTotals();
 
   const handleSave = async () => {
     if (!customerDetails.customerName.trim()) {
