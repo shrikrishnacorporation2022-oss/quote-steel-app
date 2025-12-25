@@ -147,45 +147,68 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                         </>
                     )}
                     {/* Taxable logic for Image Template */}
-                    <div className="flex justify-between text-lg font-semibold text-indigo-700 pt-2 border-t border-indigo-200">
-                        <span>Total (Tax Inclusive):</span>
-                        <span>₹{((quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0) + (quote.transportTaxable ? (quote.transportCharges || 0) : 0) + (quote.loadingTaxable ? (quote.loadingUnloadingCharges || 0) : 0)).toFixed(2)}</span>
-                    </div>
-                    {quote.transportTaxable && quote.transportCharges > 0 && (
-                        <div className="flex justify-between text-slate-600 text-sm">
-                            <span>Transport (Incl. 18% GST):</span>
-                            <span>+₹{quote.transportCharges?.toFixed(2)}</span>
-                        </div>
-                    )}
-                    {quote.loadingTaxable && quote.loadingUnloadingCharges > 0 && (
-                        <div className="flex justify-between text-slate-600 text-sm">
-                            <span>Loading (Incl. 18% GST):</span>
-                            <span>+₹{quote.loadingUnloadingCharges?.toFixed(2)}</span>
-                        </div>
-                    )}
+                    {(() => {
+                        const isTaxable = quote.additionalChargesTaxable || quote.transportTaxable || quote.loadingTaxable;
+                        const transport = quote.transportCharges || 0;
+                        const loading = quote.loadingUnloadingCharges || 0;
+                        const gstOnCharges = isTaxable ? (transport + loading) * 0.18 : 0;
+                        const totalWithGstCharges = ((quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0)) + (isTaxable ? (transport + loading + gstOnCharges) : 0);
+                        const hasNonTaxable = !isTaxable && (transport > 0 || loading > 0);
 
-                    {/* Non-taxable logic for Image Template */}
-                    {((!quote.transportTaxable && quote.transportCharges > 0) || (!quote.loadingTaxable && quote.loadingUnloadingCharges > 0)) && (
-                        <>
-                            {!quote.transportTaxable && quote.transportCharges > 0 && (
-                                <div className="flex justify-between text-slate-500 text-sm italic py-1">
-                                    <span>Transport (Non-taxable):</span>
-                                    <span>+₹{quote.transportCharges?.toFixed(2)}</span>
+                        return (
+                            <>
+                                <div className="flex justify-between text-lg font-semibold text-indigo-700 pt-2 border-t border-indigo-200">
+                                    <span>Total (Tax Inclusive):</span>
+                                    <span>₹{totalWithGstCharges.toFixed(2)}</span>
                                 </div>
-                            )}
-                            {!quote.loadingTaxable && quote.loadingUnloadingCharges > 0 && (
-                                <div className="flex justify-between text-slate-500 text-sm italic py-1">
-                                    <span>Loading (Non-taxable):</span>
-                                    <span>+₹{quote.loadingUnloadingCharges?.toFixed(2)}</span>
-                                </div>
-                            )}
-                        </>
-                    )}
 
-                    <div className="flex justify-between text-xl font-bold text-indigo-700 pt-3 border-t-2 border-indigo-100">
-                        <span>Grand Total:</span>
-                        <span>₹{quote.total?.toFixed(2)}</span>
-                    </div>
+                                {isTaxable && (
+                                    <>
+                                        {transport > 0 && (
+                                            <div className="flex justify-between text-slate-600 text-sm">
+                                                <span>Transport (Base):</span>
+                                                <span>+₹{transport.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {loading > 0 && (
+                                            <div className="flex justify-between text-slate-600 text-sm">
+                                                <span>Loading (Base):</span>
+                                                <span>+₹{loading.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {gstOnCharges > 0 && (
+                                            <div className="flex justify-between text-emerald-600 text-sm font-bold">
+                                                <span>GST (18% on Charges):</span>
+                                                <span>+₹{gstOnCharges.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {hasNonTaxable && (
+                                    <>
+                                        {transport > 0 && (
+                                            <div className="flex justify-between text-slate-500 text-sm italic py-1">
+                                                <span>Transport (Non-taxable):</span>
+                                                <span>+₹{transport.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {loading > 0 && (
+                                            <div className="flex justify-between text-slate-500 text-sm italic py-1">
+                                                <span>Loading (Non-taxable):</span>
+                                                <span>+₹{loading.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                <div className="flex justify-between text-xl font-bold text-indigo-700 pt-3 border-t-2 border-indigo-100">
+                                    <span>Grand Total:</span>
+                                    <span>₹{quote.total?.toFixed(2)}</span>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
 

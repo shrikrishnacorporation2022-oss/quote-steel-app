@@ -27,9 +27,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
   const [onlineDiscountPercent, setOnlineDiscountPercent] = useState(0);
   const [offlineDiscountPercent, setOfflineDiscountPercent] = useState(0);
   const [transportCharges, setTransportCharges] = useState(0);
-  const [transportTaxable, setTransportTaxable] = useState(false);
   const [loadingUnloadingCharges, setLoadingUnloadingCharges] = useState(0);
-  const [loadingTaxable, setLoadingTaxable] = useState(false);
+  const [additionalChargesTaxable, setAdditionalChargesTaxable] = useState(false);
   const [loadingRate, setLoadingRate] = useState(''); // Rate per kg for loading
   const [saving, setSaving] = useState(false);
   const [quoteForImage, setQuoteForImage] = useState(null);
@@ -66,9 +65,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       setOnlineDiscountPercent(initialData.onlineDiscountPercent || 0);
       setOfflineDiscountPercent(initialData.offlineDiscountPercent || 0);
       setTransportCharges(initialData.transportCharges || 0);
-      setTransportTaxable(initialData.transportTaxable || false);
       setLoadingUnloadingCharges(initialData.loadingUnloadingCharges || 0);
-      setLoadingTaxable(initialData.loadingTaxable || false);
+      setAdditionalChargesTaxable(initialData.additionalChargesTaxable || initialData.transportTaxable || initialData.loadingTaxable || false);
       setLoadingRate(initialData.loadingRate || '');
       if (initialData.extractedData) {
         setVendorMetadata(initialData.extractedData);
@@ -271,9 +269,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       setOnlineDiscountPercent(0);
       setOfflineDiscountPercent(0);
       setTransportCharges(0);
-      setTransportTaxable(false);
       setLoadingUnloadingCharges(0);
-      setLoadingTaxable(false);
+      setAdditionalChargesTaxable(false);
       setNotes('');
       if (onSaveComplete) onSaveComplete(); // Exit edit mode on reset if desired
     }
@@ -318,7 +315,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
     const totalDiscount = onlineDiscountAmount + offlineDiscountAmount;
 
     const subtotal = steelTotal + productTotal;
-    const total = subtotal - totalDiscount + (parseFloat(transportCharges) || 0) + (parseFloat(loadingUnloadingCharges) || 0);
+    const transportTotal = additionalChargesTaxable ? (parseFloat(transportCharges) || 0) * 1.18 : (parseFloat(transportCharges) || 0);
+    const loadingTotal = additionalChargesTaxable ? (parseFloat(loadingUnloadingCharges) || 0) * 1.18 : (parseFloat(loadingUnloadingCharges) || 0);
+    const total = subtotal - totalDiscount + transportTotal + loadingTotal;
 
     return {
       steelTotal,
@@ -382,9 +381,10 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       offlineDiscountPercent,
       offlineDiscountAmount,
       transportCharges: parseFloat(transportCharges) || 0,
-      transportTaxable,
       loadingUnloadingCharges: parseFloat(loadingUnloadingCharges) || 0,
-      loadingTaxable,
+      additionalChargesTaxable,
+      transportTaxable: additionalChargesTaxable, // Sync for backward compatibility
+      loadingTaxable: additionalChargesTaxable,   // Sync for backward compatibility
       subtotal,
       total,
       notes,
@@ -874,12 +874,21 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
 
           {/* Additional Charges Section */}
           <div className="card p-6">
-            <div className="flex justify-between items-center mb-3">
-              <label className="block text-sm font-medium text-slate-700">
-                Additional Charges
-              </label>
-              <div className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
-                Total Weight: {totalWeight.toFixed(2)} kg
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-3">
+              <span className="font-bold text-slate-800 uppercase tracking-wider text-sm">Additional Charges</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors group">
+                  <input
+                    type="checkbox"
+                    checked={additionalChargesTaxable}
+                    onChange={e => setAdditionalChargesTaxable(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-bold text-slate-600 group-hover:text-indigo-700">Apply 18% GST to Charges</span>
+                </label>
+                <div className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                  Total Weight: {totalWeight.toFixed(2)} kg
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -887,15 +896,6 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium text-slate-700">Transport Charges</span>
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={transportTaxable}
-                      onChange={e => setTransportTaxable(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-xs font-semibold text-slate-500 group-hover:text-indigo-600 transition-colors">Taxable (18% GST)</span>
-                  </label>
                   <span className="text-xs text-slate-500">(Weight: {totalWeight.toFixed(2)} kg)</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -910,9 +910,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
                     placeholder="0"
                   />
                 </div>
-                {transportTaxable && (
+                {additionalChargesTaxable && (
                   <div className="mt-2 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded">
-                    Includes 18% GST (Calculated as Total * 18/118)
+                    Base Amount (GST Extra)
                   </div>
                 )}
               </div>
@@ -921,15 +921,6 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium text-slate-700">Loading/Unloading</span>
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={loadingTaxable}
-                      onChange={e => setLoadingTaxable(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-xs font-semibold text-slate-500 group-hover:text-indigo-600 transition-colors">Taxable (18% GST)</span>
-                  </label>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-1">
@@ -962,9 +953,9 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
                       />
                     </div>
                   </div>
-                  {loadingTaxable && (
+                  {additionalChargesTaxable && (
                     <div className="mt-2 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded">
-                      Includes 18% GST (Calculated as Total * 18/118)
+                      Base Amount (GST Extra)
                     </div>
                   )}
                 </div>
@@ -1000,37 +991,44 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
                 </div>
               )}
 
-              {transportTaxable && transportCharges > 0 && (
-                <div className="flex justify-between items-center text-sm text-slate-600">
-                  <span>Transport (Incl. 18% GST):</span>
-                  <span>+₹{parseFloat(transportCharges).toFixed(2)}</span>
-                </div>
-              )}
-
-              {loadingTaxable && loadingUnloadingCharges > 0 && (
-                <div className="flex justify-between items-center text-sm text-slate-600">
-                  <span>Loading (Incl. 18% GST):</span>
-                  <span>+₹{parseFloat(loadingUnloadingCharges).toFixed(2)}</span>
-                </div>
+              {additionalChargesTaxable && (
+                <>
+                  {transportCharges > 0 && (
+                    <div className="flex justify-between items-center text-sm text-slate-600">
+                      <span>Transport (Base):</span>
+                      <span>+₹{parseFloat(transportCharges).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {loadingUnloadingCharges > 0 && (
+                    <div className="flex justify-between items-center text-sm text-slate-600">
+                      <span>Loading (Base):</span>
+                      <span>+₹{parseFloat(loadingUnloadingCharges).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-sm text-emerald-600 font-bold">
+                    <span>GST (18% on Charges):</span>
+                    <span>+₹{((parseFloat(transportCharges) + parseFloat(loadingUnloadingCharges)) * 0.18).toFixed(2)}</span>
+                  </div>
+                </>
               )}
 
               <div className="flex justify-between items-center text-lg font-bold text-indigo-700 pt-2 border-t border-slate-200">
                 <span>Total (Tax Inclusive):</span>
-                <span>₹{((subtotal - totalDiscount) + (transportTaxable ? transportCharges : 0) + (loadingTaxable ? loadingUnloadingCharges : 0)).toFixed(2)}</span>
+                <span>₹{((subtotal - totalDiscount) + (additionalChargesTaxable ? (parseFloat(transportCharges) + parseFloat(loadingUnloadingCharges)) * 1.18 : 0)).toFixed(2)}</span>
               </div>
 
-              {((!transportTaxable && transportCharges > 0) || (!loadingTaxable && loadingUnloadingCharges > 0)) && (
+              {!additionalChargesTaxable && (transportCharges > 0 || loadingUnloadingCharges > 0) && (
                 <div className="space-y-3 pt-4 border-t border-slate-100">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Non-taxable Charges</div>
-                  {!transportTaxable && transportCharges > 0 && (
+                  {transportCharges > 0 && (
                     <div className="flex justify-between items-center text-sm text-slate-600 italic">
-                      <span>Transport (Exempt/Non-taxable):</span>
+                      <span>Transport (Non-taxable):</span>
                       <span>+₹{parseFloat(transportCharges).toFixed(2)}</span>
                     </div>
                   )}
-                  {!loadingTaxable && loadingUnloadingCharges > 0 && (
+                  {loadingUnloadingCharges > 0 && (
                     <div className="flex justify-between items-center text-sm text-slate-600 italic">
-                      <span>Loading (Exempt/Non-taxable):</span>
+                      <span>Loading (Non-taxable):</span>
                       <span>+₹{parseFloat(loadingUnloadingCharges).toFixed(2)}</span>
                     </div>
                   )}

@@ -112,7 +112,7 @@ const generateQuotePDF = (quote) => {
                 const isInventory = item.brand === 'Other';
                 const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
                 const itemPrice = isInventory
-                    ? `${formatCurrency(item.pricePerRod)}/${item.inputUnit}` // stored in pricePerRod for inventory
+                    ? `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`
                     : (item.pricePerKg ? formatCurrency(item.pricePerKg) + '/kg' : formatCurrency(item.pricePerRod) + '/rod');
 
                 doc.fillColor(secondaryColor)
@@ -151,28 +151,43 @@ const generateQuotePDF = (quote) => {
                     .text(quote.notes, 50, y, { width: 350 });
                 y += 40;
             }
+
             // === TOTALS SECTION ===
             const totalsX = 360;
             let totalsY = y + 20;
 
-            // Taxable vs Non-taxable charges
-            const taxableTransport = quote.transportTaxable ? (quote.transportCharges || 0) : 0;
-            const taxableLoading = quote.loadingTaxable ? (quote.loadingUnloadingCharges || 0) : 0;
-            const nonTaxableTransport = !quote.transportTaxable ? (quote.transportCharges || 0) : 0;
-            const nonTaxableLoading = !quote.loadingTaxable ? (quote.loadingUnloadingCharges || 0) : 0;
+            const totalWeight = quote.items.reduce((sum, item) => {
+                if (item.brand === 'Other') {
+                    return item.inputUnit === 'kg' ? sum + (parseFloat(item.inputQty) || 0) : sum;
+                }
+                return sum + (item.convertedKg || 0);
+            }, 0);
 
-            const hasNonTaxableCharges = (nonTaxableTransport > 0) || (nonTaxableLoading > 0);
+            // Taxable vs Non-taxable charges logic
+            const isTaxable = quote.additionalChargesTaxable || quote.transportTaxable || quote.loadingTaxable;
+            const transport = (quote.transportCharges || 0);
+            const loading = (quote.loadingUnloadingCharges || 0);
+            const gstOnCharges = isTaxable ? (transport + loading) * 0.18 : 0;
+
+            const subtotalAfterDiscount = (quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0);
+            const totalWithGstCharges = subtotalAfterDiscount + (isTaxable ? (transport + loading + gstOnCharges) : 0);
+            const hasNonTaxableCharges = !isTaxable && (transport > 0 || loading > 0);
 
             // Calculate box height based on content
             let boxHeight = 80;
             if (quote.onlineDiscountAmount > 0) boxHeight += 20;
             if (quote.offlineDiscountAmount > 0) boxHeight += 20;
-            if (taxableTransport > 0) boxHeight += 20;
-            if (taxableLoading > 0) boxHeight += 20;
-            if (nonTaxableTransport > 0) boxHeight += 20;
-            if (nonTaxableLoading > 0) boxHeight += 20;
             if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) boxHeight += 20;
-            if (hasNonTaxableCharges) boxHeight += 20; // Extra room for subtotal label if we show it
+            if (isTaxable && transport > 0) boxHeight += 20;
+            if (isTaxable && loading > 0) boxHeight += 20;
+            if (isTaxable && gstOnCharges > 0) boxHeight += 20;
+            boxHeight += 20; // For Total Weight
+            boxHeight += 30; // For Total (Tax Inclusive) box extra room
+            if (hasNonTaxableCharges) {
+                if (transport > 0) boxHeight += 20;
+                if (loading > 0) boxHeight += 20;
+                boxHeight += 30; // For Grand Total
+            }
 
             // Totals background box
             doc.rect(totalsX - 10, totalsY - 10, 212, boxHeight).fill('#F8FAFC').stroke('#E2E8F0');
@@ -181,7 +196,12 @@ const generateQuotePDF = (quote) => {
                 .fontSize(10)
                 .font('Helvetica');
 
-            // Steel Subtotal (if mixed items)
+            // Total Weight
+            doc.text('Total Weight:', totalsX, totalsY)
+                .text(`${totalWeight.toFixed(2)} kg`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+            totalsY += 20;
+
+            // Steel Subtotal
             if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) {
                 doc.text('Steel Total:', totalsX, totalsY)
                     .text(formatCurrency(quote.steelSubtotal), totalsX + 110, totalsY, { width: 90, align: 'right' });
@@ -191,7 +211,6 @@ const generateQuotePDF = (quote) => {
             // Subtotal
             doc.text('Subtotal:', totalsX, totalsY)
                 .text(formatCurrency(quote.subtotal), totalsX + 110, totalsY, { width: 90, align: 'right' });
-
             totalsY += 20;
 
             // Online Discount
@@ -211,48 +230,58 @@ const generateQuotePDF = (quote) => {
             }
 
             // Taxable additional charges
-            doc.fillColor(secondaryColor);
-            if (taxableTransport > 0) {
-                doc.text('Transport (Incl. 18%):', totalsX, totalsY)
-                    .text(`+${formatCurrency(taxableTransport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
-                totalsY += 20;
-            }
-            if (taxableLoading > 0) {
-                doc.text('Loading (Incl. 18%):', totalsX, totalsY)
-                    .text(`+${formatCurrency(taxableLoading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
-                totalsY += 20;
-            }
-
-            // Non-taxable charges section
-            const taxableSubtotal = (quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0) + taxableTransport + taxableLoading;
-
-            if (hasNonTaxableCharges) {
-                // Show Taxable Subtotal before listed non-taxable charges
-                doc.fillColor(primaryColor)
-                    .text('Subtotal (Tax Incl.):', totalsX, totalsY)
-                    .text(formatCurrency(taxableSubtotal), totalsX + 110, totalsY, { width: 90, align: 'right' });
-                totalsY += 20;
-
+            if (isTaxable) {
                 doc.fillColor(secondaryColor);
-                if (nonTaxableTransport > 0) {
-                    doc.text('Transport Charges:', totalsX, totalsY)
-                        .text(`+${formatCurrency(nonTaxableTransport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                if (transport > 0) {
+                    doc.text('Transport (Base):', totalsX, totalsY)
+                        .text(`+${formatCurrency(transport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
                     totalsY += 20;
                 }
-                if (nonTaxableLoading > 0) {
-                    doc.text('Loading/Unloading:', totalsX, totalsY)
-                        .text(`+${formatCurrency(nonTaxableLoading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                if (loading > 0) {
+                    doc.text('Loading (Base):', totalsX, totalsY)
+                        .text(`+${formatCurrency(loading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
                     totalsY += 20;
+                }
+                if (gstOnCharges > 0) {
+                    doc.fillColor(accentColor).font('Helvetica-Bold')
+                        .text('GST (18% on Charges):', totalsX, totalsY)
+                        .text(`+${formatCurrency(gstOnCharges)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                    doc.font('Helvetica');
                 }
             }
 
-            // Grand Total (Tax Inclusive)
+            // Total (Tax Inclusive)
             doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(accentColor);
             doc.fillColor('#FFFFFF')
                 .fontSize(12)
                 .font('Helvetica-Bold')
                 .text('Total (Tax Inclusive):', totalsX, totalsY)
-                .text(formatCurrency(quote.total), totalsX + 110, totalsY, { width: 90, align: 'right' });
+                .text(formatCurrency(totalWithGstCharges), totalsX + 110, totalsY, { width: 90, align: 'right' });
+
+            totalsY += 35;
+
+            if (hasNonTaxableCharges) {
+                doc.fontSize(10).font('Helvetica').fillColor(secondaryColor);
+                if (transport > 0) {
+                    doc.text('Transport (Non-taxable):', totalsX, totalsY)
+                        .text(`+${formatCurrency(transport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                }
+                if (loading > 0) {
+                    doc.text('Loading (Non-taxable):', totalsX, totalsY)
+                        .text(`+${formatCurrency(loading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                }
+
+                // Grand Total
+                doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(primaryColor);
+                doc.fillColor('#FFFFFF')
+                    .fontSize(12)
+                    .font('Helvetica-Bold')
+                    .text('Grand Total:', totalsX, totalsY)
+                    .text(formatCurrency(quote.total), totalsX + 110, totalsY, { width: 90, align: 'right' });
+            }
 
             // === FOOTER ===
             const footerY = 750;

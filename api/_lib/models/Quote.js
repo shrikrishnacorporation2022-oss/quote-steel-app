@@ -44,6 +44,7 @@ const QuoteSchema = new mongoose.Schema({
     transportTaxable: { type: Boolean, default: false },
     loadingUnloadingCharges: { type: Number, default: 0 },
     loadingTaxable: { type: Boolean, default: false },
+    additionalChargesTaxable: { type: Boolean, default: false },
 
     total: Number,  // Final total after discounts and charges
 

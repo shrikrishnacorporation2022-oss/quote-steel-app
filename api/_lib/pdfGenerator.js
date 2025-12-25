@@ -4,7 +4,7 @@ const generateQuotePDF = (quote) => {
     return new Promise((resolve, reject) => {
         try {
             const doc = new PDFDocument({
-                margin: 50,
+                margin: 40,
                 size: 'A4'
             });
             const buffers = [];
@@ -111,51 +111,16 @@ const generateQuotePDF = (quote) => {
 
                 const isInventory = item.brand === 'Other';
                 const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
-
-                // For kg-selling brands, show both input unit and kg weight
-                let quantityDisplay, unitDisplay, itemPrice;
-
-                if (isInventory) {
-                    // Inventory: show as-is
-                    quantityDisplay = formatNumber(item.inputQty);
-                    unitDisplay = item.inputUnit;
-                    itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`;
-                } else {
-                    // Steel brands
-                    // Check for sellsInNos flag (new quotes) OR infer from data (old quotes)
-                    const brandName = (item.brand || '').toLowerCase().trim();
-                    const isTataBrand = brandName.includes('tata');
-
-                    // Heuristic for nos-based pricing
-                    const isNosBased = item.sellsInNos || isTataBrand || (item.inputUnit === 'nos' && item.pricePerRod > 0 && (!item.pricePerKg || item.pricePerKg > 1000));
-
-                    if (isNosBased) {
-                        // Sells by NOS (like Tata) - always show price per nos
-                        quantityDisplay = formatNumber(item.inputQty);
-                        unitDisplay = item.inputUnit || 'nos';
-                        itemPrice = `${formatCurrency(item.pricePerRod)}/nos`;
-                    } else {
-                        // Sells by KG - always show price per kg
-                        itemPrice = `${formatCurrency(item.pricePerKg)}/kg`;
-
-                        if (item.inputUnit === 'kg') {
-                            // Input was kg, show as-is
-                            quantityDisplay = formatNumber(item.convertedKg);
-                            unitDisplay = 'kg';
-                        } else {
-                            // Input was nos/bundles, show both
-                            quantityDisplay = `${formatNumber(item.inputQty)} ${item.inputUnit}`;
-                            unitDisplay = `(${formatNumber(item.convertedKg)} kg)`;
-                        }
-                    }
-                }
+                const itemPrice = isInventory
+                    ? `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`
+                    : (item.pricePerKg ? formatCurrency(item.pricePerKg) + '/kg' : formatCurrency(item.pricePerRod) + '/rod');
 
                 doc.fillColor(secondaryColor)
                     .text(index + 1, 45, y)
                     .text(itemName, 85, y, { width: 110 })
                     .text(item.size || '-', 200, y)
-                    .text(quantityDisplay, 260, y, { width: 55 })
-                    .text(unitDisplay, 320, y, { width: 55 })
+                    .text(formatNumber(item.inputQty), 260, y)
+                    .text(item.inputUnit || 'kg', 320, y)
                     .text(itemPrice, 380, y, { width: 100 })
                     .text(formatCurrency(item.amount), 490, y, { width: 70, align: 'right' });
 
@@ -186,42 +151,43 @@ const generateQuotePDF = (quote) => {
                     .text(quote.notes, 50, y, { width: 350 });
                 y += 40;
             }
+
             // === TOTALS SECTION ===
             const totalsX = 360;
             let totalsY = y + 20;
 
-            // Calculate total weight
-            const totalWeight = items.reduce((sum, item) => {
-                const isInventory = item.brand === 'Other';
-                if (isInventory) {
+            const totalWeight = quote.items.reduce((sum, item) => {
+                if (item.brand === 'Other') {
                     return item.inputUnit === 'kg' ? sum + (parseFloat(item.inputQty) || 0) : sum;
-                } else {
-                    return sum + (item.convertedKg || 0);
                 }
+                return sum + (item.convertedKg || 0);
             }, 0);
 
-            // Taxable vs Non-taxable charges
-            const taxableTransport = quote.transportTaxable ? (quote.transportCharges || 0) : 0;
-            const taxableLoading = quote.loadingTaxable ? (quote.loadingUnloadingCharges || 0) : 0;
-            const nonTaxableTransport = !quote.transportTaxable ? (quote.transportCharges || 0) : 0;
-            const nonTaxableLoading = !quote.loadingTaxable ? (quote.loadingUnloadingCharges || 0) : 0;
+            // Taxable vs Non-taxable charges logic
+            const isTaxable = quote.additionalChargesTaxable || quote.transportTaxable || quote.loadingTaxable;
+            const transport = (quote.transportCharges || 0);
+            const loading = (quote.loadingUnloadingCharges || 0);
+            const gstOnCharges = isTaxable ? (transport + loading) * 0.18 : 0;
 
-            // Calculate taxable total (including taxable charges)
-            const taxableTotal = (quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0) + taxableTransport + taxableLoading;
-            const hasNonTaxableCharges = (nonTaxableTransport > 0) || (nonTaxableLoading > 0);
+            const subtotalAfterDiscount = (quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0);
+            const totalWithGstCharges = subtotalAfterDiscount + (isTaxable ? (transport + loading + gstOnCharges) : 0);
+            const hasNonTaxableCharges = !isTaxable && (transport > 0 || loading > 0);
 
             // Calculate box height based on content
             let boxHeight = 80;
             if (quote.onlineDiscountAmount > 0) boxHeight += 20;
             if (quote.offlineDiscountAmount > 0) boxHeight += 20;
             if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) boxHeight += 20;
-            if (taxableTransport > 0) boxHeight += 20;
-            if (taxableLoading > 0) boxHeight += 20;
+            if (isTaxable && transport > 0) boxHeight += 20;
+            if (isTaxable && loading > 0) boxHeight += 20;
+            if (isTaxable && gstOnCharges > 0) boxHeight += 20;
             boxHeight += 20; // For Total Weight
-            if (hasNonTaxableCharges) boxHeight += 20; // For "Total (Tax Inclusive)" line
-            if (nonTaxableTransport > 0) boxHeight += 20;
-            if (nonTaxableLoading > 0) boxHeight += 20;
-            if (hasNonTaxableCharges) boxHeight += 25; // For "Grand Total" line with extra spacing
+            boxHeight += 30; // For Total (Tax Inclusive) box extra room
+            if (hasNonTaxableCharges) {
+                if (transport > 0) boxHeight += 20;
+                if (loading > 0) boxHeight += 20;
+                boxHeight += 30; // For Grand Total
+            }
 
             // Totals background box
             doc.rect(totalsX - 10, totalsY - 10, 212, boxHeight).fill('#F8FAFC').stroke('#E2E8F0');
@@ -235,7 +201,7 @@ const generateQuotePDF = (quote) => {
                 .text(`${totalWeight.toFixed(2)} kg`, totalsX + 110, totalsY, { width: 90, align: 'right' });
             totalsY += 20;
 
-            // Steel Subtotal (if mixed items)
+            // Steel Subtotal
             if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) {
                 doc.text('Steel Total:', totalsX, totalsY)
                     .text(formatCurrency(quote.steelSubtotal), totalsX + 110, totalsY, { width: 90, align: 'right' });
@@ -245,7 +211,6 @@ const generateQuotePDF = (quote) => {
             // Subtotal
             doc.text('Subtotal:', totalsX, totalsY)
                 .text(formatCurrency(quote.subtotal), totalsX + 110, totalsY, { width: 90, align: 'right' });
-
             totalsY += 20;
 
             // Online Discount
@@ -265,58 +230,56 @@ const generateQuotePDF = (quote) => {
             }
 
             // Taxable additional charges
-            doc.fillColor(secondaryColor);
-            if (taxableTransport > 0) {
-                doc.text('Transport (Incl. 18%):', totalsX, totalsY)
-                    .text(`+${formatCurrency(taxableTransport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
-                totalsY += 20;
-            }
-            if (taxableLoading > 0) {
-                doc.text('Loading (Incl. 18%):', totalsX, totalsY)
-                    .text(`+${formatCurrency(taxableLoading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
-                totalsY += 20;
-            }
-
-            // Total (Tax Inclusive) - Only if there are non-taxable charges
-            if (hasNonTaxableCharges) {
-                doc.fillColor(secondaryColor)
-                    .fontSize(11)
-                    .font('Helvetica-Bold')
-                    .text('Total (Tax Inclusive):', totalsX, totalsY)
-                    .text(formatCurrency(taxableTotal), totalsX + 110, totalsY, { width: 90, align: 'right' });
-                totalsY += 20;
-
-                // Non-taxable charges
-                doc.fontSize(10).font('Helvetica').fillColor(secondaryColor);
-
-                // Transport Charges
-                if (nonTaxableTransport > 0) {
-                    doc.text('Transport Charges:', totalsX, totalsY)
-                        .text(`+${formatCurrency(nonTaxableTransport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+            if (isTaxable) {
+                doc.fillColor(secondaryColor);
+                if (transport > 0) {
+                    doc.text('Transport (Base):', totalsX, totalsY)
+                        .text(`+${formatCurrency(transport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
                     totalsY += 20;
                 }
+                if (loading > 0) {
+                    doc.text('Loading (Base):', totalsX, totalsY)
+                        .text(`+${formatCurrency(loading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                }
+                if (gstOnCharges > 0) {
+                    doc.fillColor(accentColor).font('Helvetica-Bold')
+                        .text('GST (18% on Charges):', totalsX, totalsY)
+                        .text(`+${formatCurrency(gstOnCharges)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                    doc.font('Helvetica');
+                }
+            }
 
-                // Loading/Unloading Charges
-                if (nonTaxableLoading > 0) {
-                    doc.text('Loading/Unloading:', totalsX, totalsY)
-                        .text(`+${formatCurrency(nonTaxableLoading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+            // Total (Tax Inclusive)
+            doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(accentColor);
+            doc.fillColor('#FFFFFF')
+                .fontSize(12)
+                .font('Helvetica-Bold')
+                .text('Total (Tax Inclusive):', totalsX, totalsY)
+                .text(formatCurrency(totalWithGstCharges), totalsX + 110, totalsY, { width: 90, align: 'right' });
+
+            totalsY += 35;
+
+            if (hasNonTaxableCharges) {
+                doc.fontSize(10).font('Helvetica').fillColor(secondaryColor);
+                if (transport > 0) {
+                    doc.text('Transport (Non-taxable):', totalsX, totalsY)
+                        .text(`+${formatCurrency(transport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                }
+                if (loading > 0) {
+                    doc.text('Loading (Non-taxable):', totalsX, totalsY)
+                        .text(`+${formatCurrency(loading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
                     totalsY += 20;
                 }
 
                 // Grand Total
-                doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(accentColor);
+                doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(primaryColor);
                 doc.fillColor('#FFFFFF')
                     .fontSize(12)
                     .font('Helvetica-Bold')
                     .text('Grand Total:', totalsX, totalsY)
-                    .text(formatCurrency(quote.total), totalsX + 110, totalsY, { width: 90, align: 'right' });
-            } else {
-                // No non-taxable charges, just show Total (Tax Inclusive)
-                doc.rect(totalsX - 10, totalsY - 5, 212, 25).fill(accentColor);
-                doc.fillColor('#FFFFFF')
-                    .fontSize(12)
-                    .font('Helvetica-Bold')
-                    .text('Total (Tax Inclusive):', totalsX, totalsY)
                     .text(formatCurrency(quote.total), totalsX + 110, totalsY, { width: 90, align: 'right' });
             }
 
@@ -329,8 +292,9 @@ const generateQuotePDF = (quote) => {
                 .font('Helvetica')
                 .text('Terms & Conditions:', 50, footerY + 10)
                 .fontSize(7)
-                .text('\u2022 Payment terms: As agreed', 50, footerY + 23)
-                .text('\u2022 Delivery: Subject to availability', 50, footerY + 33);
+                .text('• Payment terms: As agreed', 50, footerY + 23)
+                .text('• Delivery: Subject to availability', 50, footerY + 33)
+                .text('• All prices are tax inclusive', 50, footerY + 43);
 
             doc.fontSize(8)
                 .text('Thank you for your business!', 320, footerY + 10, { align: 'center', width: 242 });
