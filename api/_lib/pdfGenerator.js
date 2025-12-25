@@ -110,10 +110,19 @@ const generateQuotePDF = (quote) => {
                 }
 
                 const isInventory = item.brand === 'Other';
+                const brandName = (item.brand || '').toLowerCase().trim();
+                const isTataBrand = brandName.includes('tata');
+                const isNosBased = !isInventory && (item.sellsInNos || isTataBrand || (item.inputUnit === 'nos' && item.pricePerRod > 0));
+
                 const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
-                const itemPrice = isInventory
-                    ? `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`
-                    : (item.pricePerKg ? formatCurrency(item.pricePerKg) + '/kg' : formatCurrency(item.pricePerRod) + '/rod');
+                let itemPrice;
+                if (isInventory) {
+                    itemPrice = `${formatCurrency(item.pricePerRod)}/${item.inputUnit}`;
+                } else if (isNosBased) {
+                    itemPrice = `${formatCurrency(item.pricePerRod)}/nos`;
+                } else {
+                    itemPrice = `${formatCurrency(item.pricePerKg)}/kg`;
+                }
 
                 doc.fillColor(secondaryColor)
                     .text(index + 1, 45, y)

@@ -11,6 +11,9 @@ const QuoteItemSchema = new mongoose.Schema({
     convertedBundles: Number,
     pricePerKg: Number,
     pricePerRod: Number,
+    sellsInNos: Boolean,
+    baseRate: Number,
+    taxRate: Number,
     amount: Number
 }, { _id: false });
 
@@ -39,7 +42,10 @@ const QuoteSchema = new mongoose.Schema({
 
     // Additional Charges
     transportCharges: { type: Number, default: 0 },
+    transportTaxable: { type: Boolean, default: false },
     loadingUnloadingCharges: { type: Number, default: 0 },
+    loadingTaxable: { type: Boolean, default: false },
+    additionalChargesTaxable: { type: Boolean, default: false },
 
     total: Number,  // Final total after discounts and charges
 

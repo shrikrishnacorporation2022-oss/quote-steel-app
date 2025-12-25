@@ -11,6 +11,7 @@ const QuoteItemSchema = new mongoose.Schema({
     convertedBundles: Number,
     pricePerKg: Number,
     pricePerRod: Number,
+    sellsInNos: Boolean,
     baseRate: Number, // Pre-tax rate for vendor imports
     taxRate: Number,  // Tax % for vendor imports
     amount: Number
