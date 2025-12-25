@@ -155,13 +155,24 @@ const generateQuotePDF = (quote) => {
             const totalsX = 360;
             let totalsY = y + 20;
 
+            // Taxable vs Non-taxable charges
+            const taxableTransport = quote.transportTaxable ? (quote.transportCharges || 0) : 0;
+            const taxableLoading = quote.loadingTaxable ? (quote.loadingUnloadingCharges || 0) : 0;
+            const nonTaxableTransport = !quote.transportTaxable ? (quote.transportCharges || 0) : 0;
+            const nonTaxableLoading = !quote.loadingTaxable ? (quote.loadingUnloadingCharges || 0) : 0;
+
+            const hasNonTaxableCharges = (nonTaxableTransport > 0) || (nonTaxableLoading > 0);
+
             // Calculate box height based on content
             let boxHeight = 80;
             if (quote.onlineDiscountAmount > 0) boxHeight += 20;
             if (quote.offlineDiscountAmount > 0) boxHeight += 20;
-            if (quote.transportCharges > 0) boxHeight += 20;
-            if (quote.loadingUnloadingCharges > 0) boxHeight += 20;
+            if (taxableTransport > 0) boxHeight += 20;
+            if (taxableLoading > 0) boxHeight += 20;
+            if (nonTaxableTransport > 0) boxHeight += 20;
+            if (nonTaxableLoading > 0) boxHeight += 20;
             if (quote.steelSubtotal && quote.steelSubtotal !== quote.subtotal) boxHeight += 20;
+            if (hasNonTaxableCharges) boxHeight += 20; // Extra room for subtotal label if we show it
 
             // Totals background box
             doc.rect(totalsX - 10, totalsY - 10, 212, boxHeight).fill('#F8FAFC').stroke('#E2E8F0');
@@ -199,20 +210,40 @@ const generateQuotePDF = (quote) => {
                 totalsY += 20;
             }
 
-            // Transport Charges
-            if (quote.transportCharges > 0) {
-                doc.fillColor(secondaryColor)
-                    .text('Transport Charges:', totalsX, totalsY)
-                    .text(`+${formatCurrency(quote.transportCharges)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+            // Taxable additional charges
+            doc.fillColor(secondaryColor);
+            if (taxableTransport > 0) {
+                doc.text('Transport (Incl. 18%):', totalsX, totalsY)
+                    .text(`+${formatCurrency(taxableTransport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                totalsY += 20;
+            }
+            if (taxableLoading > 0) {
+                doc.text('Loading (Incl. 18%):', totalsX, totalsY)
+                    .text(`+${formatCurrency(taxableLoading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
                 totalsY += 20;
             }
 
-            // Loading/Unloading Charges
-            if (quote.loadingUnloadingCharges > 0) {
-                doc.fillColor(secondaryColor)
-                    .text('Loading/Unloading:', totalsX, totalsY)
-                    .text(`+${formatCurrency(quote.loadingUnloadingCharges)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+            // Non-taxable charges section
+            const taxableSubtotal = (quote.subtotal || 0) - (quote.onlineDiscountAmount || 0) - (quote.offlineDiscountAmount || 0) + taxableTransport + taxableLoading;
+
+            if (hasNonTaxableCharges) {
+                // Show Taxable Subtotal before listed non-taxable charges
+                doc.fillColor(primaryColor)
+                    .text('Subtotal (Tax Incl.):', totalsX, totalsY)
+                    .text(formatCurrency(taxableSubtotal), totalsX + 110, totalsY, { width: 90, align: 'right' });
                 totalsY += 20;
+
+                doc.fillColor(secondaryColor);
+                if (nonTaxableTransport > 0) {
+                    doc.text('Transport Charges:', totalsX, totalsY)
+                        .text(`+${formatCurrency(nonTaxableTransport)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                }
+                if (nonTaxableLoading > 0) {
+                    doc.text('Loading/Unloading:', totalsX, totalsY)
+                        .text(`+${formatCurrency(nonTaxableLoading)}`, totalsX + 110, totalsY, { width: 90, align: 'right' });
+                    totalsY += 20;
+                }
             }
 
             // Grand Total (Tax Inclusive)
