@@ -3,8 +3,9 @@ import { Upload, X, Check, Loader2, Plus, DollarSign, Percent, Trash2, AlertCirc
 import { extractVendorQuote } from '../api';
 
 const VendorExtraction = ({ onImport }) => {
-    const [file, setFile] = useState(null);
+    const [files, setFiles] = useState([]);
     const [processing, setProcessing] = useState(false);
+    const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [extractedData, setExtractedData] = useState(null);
     const [error, setError] = useState(null);
     const [adjustments, setAdjustments] = useState({
@@ -14,19 +15,41 @@ const VendorExtraction = ({ onImport }) => {
     });
 
     const handleFileUpload = async (e) => {
-        const uploadedFile = e.target.files[0];
-        if (!uploadedFile) return;
+        const uploadedFiles = Array.from(e.target.files);
+        if (uploadedFiles.length === 0) return;
 
-        setFile(uploadedFile);
+        setFiles(uploadedFiles);
         setProcessing(true);
         setError(null);
+        setProgress({ current: 0, total: uploadedFiles.length });
+
+        const allItems = [];
+        const allVendors = [];
+        const allUrls = [];
+        let hasDriveError = false;
 
         try {
-            const data = await extractVendorQuote(uploadedFile);
-            setExtractedData(data);
+            for (let i = 0; i < uploadedFiles.length; i++) {
+                setProgress(prev => ({ ...prev, current: i + 1 }));
+                const data = await extractVendorQuote(uploadedFiles[i]);
+
+                if (data.items) allItems.push(...data.items);
+                if (data.vendor && !allVendors.includes(data.vendor)) allVendors.push(data.vendor);
+                if (data.vendorBillUrl) allUrls.push(data.vendorBillUrl);
+                if (data.driveError) hasDriveError = true;
+            }
+
+            setExtractedData({
+                items: allItems,
+                vendor: allVendors.join(', '),
+                date: new Date().toISOString().split('T')[0],
+                vendorBillUrls: allUrls,
+                vendorBillUrl: allUrls[0], // Primary for fallback
+                driveError: hasDriveError
+            });
         } catch (err) {
             console.error('Extraction error:', err);
-            setError(err.message || 'Failed to extract data from vendor document.');
+            setError(err.message || 'Failed to extract data from vendor documents.');
         } finally {
             setProcessing(false);
         }
@@ -53,7 +76,9 @@ const VendorExtraction = ({ onImport }) => {
             items: processedItems,
             vendor: extractedData.vendor,
             date: extractedData.date,
-            vendorBillUrl: extractedData.vendorBillUrl
+            vendorBillUrls: extractedData.vendorBillUrls,
+            vendorBillUrl: extractedData.vendorBillUrl,
+            driveError: extractedData.driveError
         });
     };
 
@@ -90,7 +115,16 @@ const VendorExtraction = ({ onImport }) => {
         return (
             <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl shadow-sm border-2 border-dashed border-slate-200">
                 <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-                <p className="text-slate-600 font-medium">Extracting data from document...</p>
+                <p className="text-slate-800 font-bold text-lg">Processing Documents...</p>
+                <div className="mt-4 w-64 bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div
+                        className="bg-indigo-600 h-full transition-all duration-300"
+                        style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                    />
+                </div>
+                <p className="text-slate-500 text-sm mt-2 font-medium">
+                    File {progress.current} of {progress.total}
+                </p>
             </div>
         );
     }
@@ -111,14 +145,15 @@ const VendorExtraction = ({ onImport }) => {
                         onChange={handleFileUpload}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         accept="image/*,.pdf"
+                        multiple
                     />
                     <div className="flex flex-col items-center justify-center p-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 group-hover:border-indigo-500 group-hover:bg-indigo-50 transition-all duration-300">
                         <div className="bg-white p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform duration-300">
                             <Upload className="w-8 h-8 text-indigo-600" />
                         </div>
-                        <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Vendor Quote</h3>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Vendor Quotes</h3>
                         <p className="text-slate-500 text-center max-w-xs">
-                            Drag and drop your vendor's Image or PDF here to automatically extract items and prices.
+                            Select one or more Images/PDFs to batch extract all items.
                         </p>
                     </div>
                 </div>

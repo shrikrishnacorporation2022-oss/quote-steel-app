@@ -221,23 +221,29 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
   };
 
   const handleVendorImport = (payload) => {
-    const { items: importedItems, vendor, date, vendorBillUrl } = payload;
+    const { items: importedItems, vendor, date, vendorBillUrl, vendorBillUrls, driveError } = payload;
 
     // 1. Prepare to merge with existing data
     const newSteelItems = { ...items };
     const newInventory = [...quoteProducts];
-    const currentUrls = vendorMetadata?.vendorBillUrls || (vendorMetadata?.vendorBillUrl ? [vendorMetadata.vendorBillUrl] : []);
 
-    if (vendorBillUrl && !currentUrls.includes(vendorBillUrl)) {
-      currentUrls.push(vendorBillUrl);
+    // Merge URLs from this payload with existing ones in the calculator state
+    let allUrls = [...(vendorMetadata?.vendorBillUrls || [])];
+    if (vendorBillUrls && Array.isArray(vendorBillUrls)) {
+      vendorBillUrls.forEach(url => {
+        if (!allUrls.includes(url)) allUrls.push(url);
+      });
+    } else if (vendorBillUrl && !allUrls.includes(vendorBillUrl)) {
+      allUrls.push(vendorBillUrl);
     }
 
     // 2. Update metadata (Cumulative)
     setVendorMetadata({
       vendor: vendorMetadata?.vendor ? `${vendorMetadata.vendor}, ${vendor}` : vendor,
-      date: date, // Keep most recent date
-      vendorBillUrls: currentUrls,
-      vendorBillUrl: currentUrls[currentUrls.length - 1], // Most recent for highlight
+      date: date,
+      vendorBillUrls: allUrls,
+      vendorBillUrl: allUrls[allUrls.length - 1], // Most recent
+      driveError: driveError || vendorMetadata?.driveError, // Persist error if any step failed
       importedAt: new Date().toISOString()
     });
 
