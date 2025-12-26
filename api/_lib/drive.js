@@ -10,64 +10,52 @@ async function uploadToDrive(fileBuffer, fileName, mimeType) {
     const rawFolder = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
     if (!rawEmail || !rawKey || !rawFolder) {
-        console.warn('Google Drive credentials missing in environment variables.');
+        console.warn('Drive: Missing env variables');
         return null;
     }
 
-    // Ultra-robust cleaning of credentials
+    // Clean credentials
     const cleanEmail = rawEmail.trim().replace(/^["']/, '').replace(/["']$/, '');
     const cleanFolder = rawFolder.trim().replace(/^["']/, '').replace(/["']$/, '');
-
     let cleanKey = rawKey.trim();
-    // Remove wrapping quotes if present
-    if ((cleanKey.startsWith('"') && cleanKey.endsWith('"')) || (cleanKey.startsWith("'") && cleanKey.endsWith("'"))) {
-        cleanKey = cleanKey.substring(1, cleanKey.length - 1);
-    }
-    // Handle literal \n strings (common in Vercel/Env variables)
+    if (cleanKey.startsWith('"') || cleanKey.startsWith("'")) cleanKey = cleanKey.substring(1);
+    if (cleanKey.endsWith('"') || cleanKey.endsWith("'")) cleanKey = cleanKey.substring(0, cleanKey.length - 1);
     cleanKey = cleanKey.replace(/\\n/g, '\n');
 
     try {
-        const auth = new google.auth.JWT(
-            cleanEmail,
-            null,
-            cleanKey,
-            ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
-        );
+        // Use GoogleAuth instead of JWT for better automatic token management
+        const auth = new google.auth.GoogleAuth({
+            credentials: {
+                client_email: cleanEmail,
+                private_key: cleanKey,
+            },
+            scopes: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive'],
+        });
 
         const drive = google.drive({ version: 'v3', auth });
 
         const bufferStream = new stream.PassThrough();
         bufferStream.end(fileBuffer);
 
-        const fileMetadata = {
-            name: fileName,
-            parents: [cleanFolder],
-        };
-
-        const media = {
-            mimeType: mimeType,
-            body: bufferStream,
-        };
-
-        // 1. Create the file
         const response = await drive.files.create({
-            requestBody: fileMetadata,
-            media: media,
+            requestBody: {
+                name: fileName,
+                parents: [cleanFolder],
+            },
+            media: {
+                mimeType: mimeType,
+                body: bufferStream,
+            },
             fields: 'id, webViewLink, webContentLink',
         });
 
-        // 2. Set permissions (Make anyone with link a reader)
+        // Set permissions
         try {
             await drive.permissions.create({
                 fileId: response.data.id,
-                requestBody: {
-                    role: 'reader',
-                    type: 'anyone',
-                },
+                requestBody: { role: 'reader', type: 'anyone' },
             });
-        } catch (permError) {
-            console.error('Drive: Permission warning (ignorable):', permError.message);
-        }
+        } catch (e) { }
 
         return {
             id: response.data.id,
@@ -75,9 +63,9 @@ async function uploadToDrive(fileBuffer, fileName, mimeType) {
             downloadLink: response.data.webContentLink
         };
     } catch (error) {
-        console.error('Google Drive Upload Error Stack:', error);
-        if (error.response && error.response.data) {
-            console.error('Detailed Error Data:', JSON.stringify(error.response.data, null, 2));
+        console.error('Drive Error:', error.message);
+        if (error.response && error.response.status === 401) {
+            console.error('AUTHENTICATION FAILED: Check if GOOGLE_PRIVATE_KEY and GOOGLE_CLIENT_EMAIL are exactly correct in Vercel.');
         }
         return null;
     }
