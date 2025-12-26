@@ -247,56 +247,23 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       importedAt: new Date().toISOString()
     });
 
-    // 3. Process imported items (ADDITIVE)
+    // 3. Process imported items (ADDITIVE to Inventory)
     importedItems.forEach(item => {
       const qty = parseFloat(item.qty) || 0;
       if (qty <= 0) return;
 
-      const sizeMatch = item.description.match(/(\d+)\s*mm/i);
-      let matchedSize = null;
-      if (sizeMatch) {
-        const potentialSize = sizeMatch[1] + "mm";
-        if (SIZES.includes(potentialSize)) {
-          matchedSize = potentialSize;
-        }
-      }
-
-      if (matchedSize) {
-        // MERGE quantity if size exists
-        const existingQty = newSteelItems[matchedSize]?.inputQty || 0;
-        const totalQty = existingQty + qty;
-
-        const defaultUnit = selectedBrand?.sellsInNos ? 'nos' : globalUnit;
-        const baseItem = {
-          size: matchedSize,
-          inputUnit: newSteelItems[matchedSize]?.inputUnit || defaultUnit,
-          inputQty: totalQty
-        };
-
-        if (selectedBrand) {
-          const calculated = calculateItem(baseItem, {
-            ...selectedBrand,
-            basePrice: globalPrice ? parseFloat(globalPrice) : selectedBrand.basePrice
-          });
-          newSteelItems[matchedSize] = { ...baseItem, ...calculated };
-        } else {
-          newSteelItems[matchedSize] = baseItem;
-        }
-      } else {
-        // APPEND to inventory
-        newInventory.push({
-          name: item.description,
-          unit: item.unit || 'nos',
-          inputQty: qty,
-          pricePerUnit: parseFloat(item.rate) || 0,
-          baseRate: parseFloat(item.baseRate) || 0,
-          taxRate: parseFloat(item.taxRate) || 18,
-          amount: qty * (parseFloat(item.rate) || 0)
-        });
-      }
+      // User requested to NOT match steel sizes and only add to extra things (inventory)
+      newInventory.push({
+        name: item.description,
+        unit: item.unit || 'nos',
+        inputQty: qty,
+        pricePerUnit: parseFloat(item.rate) || 0,
+        baseRate: parseFloat(item.baseRate) || 0,
+        taxRate: parseFloat(item.taxRate) || 18,
+        amount: qty * (parseFloat(item.rate) || 0)
+      });
     });
 
-    setItems(newSteelItems);
     setQuoteProducts(newInventory);
     setEntryMode('manual');
   };
