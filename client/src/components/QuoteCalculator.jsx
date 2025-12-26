@@ -223,41 +223,29 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
   const handleVendorImport = (payload) => {
     const { items: importedItems, vendor, date, vendorBillUrl } = payload;
 
-    // 1. Reset all previous quote data (Clean Slate)
-    setItems({});
-    setQuoteProducts([]);
-    setGlobalPrice('');
-    setOnlineDiscountPercent(0);
-    setOfflineDiscountPercent(0);
-    setTransportCharges(0);
-    setLoadingUnloadingCharges(0);
-    setAdditionalChargesTaxable(false);
-    setNotes('');
-    setCustomerDetails({
-      customerName: '',
-      customerPhone: '',
-      customerEmail: '',
-      customerAddress: '',
-      customerCompany: ''
-    });
+    // 1. Prepare to merge with existing data
+    const newSteelItems = { ...items };
+    const newInventory = [...quoteProducts];
+    const currentUrls = vendorMetadata?.vendorBillUrls || (vendorMetadata?.vendorBillUrl ? [vendorMetadata.vendorBillUrl] : []);
 
-    // 2. Store metadata
+    if (vendorBillUrl && !currentUrls.includes(vendorBillUrl)) {
+      currentUrls.push(vendorBillUrl);
+    }
+
+    // 2. Update metadata (Cumulative)
     setVendorMetadata({
-      vendor,
-      date,
-      vendorBillUrl,
+      vendor: vendorMetadata?.vendor ? `${vendorMetadata.vendor}, ${vendor}` : vendor,
+      date: date, // Keep most recent date
+      vendorBillUrls: currentUrls,
+      vendorBillUrl: currentUrls[currentUrls.length - 1], // Most recent for highlight
       importedAt: new Date().toISOString()
     });
 
-    // 3. Process imported items into a clean state
-    const newInventory = [];
-    const newSteelItems = {};
-
+    // 3. Process imported items (ADDITIVE)
     importedItems.forEach(item => {
       const qty = parseFloat(item.qty) || 0;
-      if (qty <= 0) return; // Skip items with no quantity
+      if (qty <= 0) return;
 
-      // Robust size matching: look for "20mm", "20 mm", "20 MM", etc.
       const sizeMatch = item.description.match(/(\d+)\s*mm/i);
       let matchedSize = null;
       if (sizeMatch) {
@@ -268,9 +256,16 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       }
 
       if (matchedSize) {
-        // Prepare steel item
+        // MERGE quantity if size exists
+        const existingQty = newSteelItems[matchedSize]?.inputQty || 0;
+        const totalQty = existingQty + qty;
+
         const defaultUnit = selectedBrand?.sellsInNos ? 'nos' : globalUnit;
-        const baseItem = { size: matchedSize, inputUnit: defaultUnit, inputQty: qty };
+        const baseItem = {
+          size: matchedSize,
+          inputUnit: newSteelItems[matchedSize]?.inputUnit || defaultUnit,
+          inputQty: totalQty
+        };
 
         if (selectedBrand) {
           const calculated = calculateItem(baseItem, {
@@ -282,7 +277,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
           newSteelItems[matchedSize] = baseItem;
         }
       } else {
-        // Add to inventory
+        // APPEND to inventory
         newInventory.push({
           name: item.description,
           unit: item.unit || 'nos',
@@ -311,6 +306,7 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       setLoadingUnloadingCharges(0);
       setAdditionalChargesTaxable(false);
       setNotes('');
+      setVendorMetadata(null);
       if (onSaveComplete) onSaveComplete(); // Exit edit mode on reset if desired
     }
   };
@@ -429,7 +425,8 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
       notes,
       loadingRate, // Save loading rate to restore it later
       extractedData: vendorMetadata, // Save vendor metadata
-      vendorBillUrl: vendorMetadata?.vendorBillUrl // Explicitly save link for quick access
+      vendorBillUrl: vendorMetadata?.vendorBillUrl, // Primary link
+      vendorBillUrls: vendorMetadata?.vendorBillUrls || [] // All links
     };
 
     setSaving(true);
@@ -477,21 +474,33 @@ function QuoteCalculator({ initialData, onSaveComplete }) {
 
           <div className="flex flex-wrap items-center gap-2">
             {vendorMetadata && (
-              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-lg animate-bounce-subtle border-2 border-emerald-400">
-                <div className="flex items-center gap-2 border-r border-emerald-400 pr-3">
-                  <FileText className="w-4 h-4" />
-                  <span>VENDOR IMPORT: {vendorMetadata.vendor || 'Bill'}</span>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-lg border-2 border-emerald-400">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    <span>VENDOR IMPORTING: {vendorMetadata.vendor || 'Bill'}</span>
+                  </div>
                 </div>
-                {vendorMetadata.vendorBillUrl && (
-                  <a
-                    href={vendorMetadata.vendorBillUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 hover:bg-emerald-500 px-2 py-1 rounded transition-all bg-emerald-700/50"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>View Bill</span>
-                  </a>
+                {vendorMetadata.vendorBillUrls && vendorMetadata.vendorBillUrls.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {vendorMetadata.vendorBillUrls.map((url, idx) => (
+                      <a
+                        key={idx}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border border-emerald-200"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Bill #{idx + 1}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {vendorMetadata.driveError && (
+                  <div className="text-[10px] text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 font-medium">
+                    ⚠️ Note: Bill was extracted but could not be saved to Google Drive. Check Vercel Folder ID.
+                  </div>
                 )}
               </div>
             )}

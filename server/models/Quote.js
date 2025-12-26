@@ -50,6 +50,9 @@ const QuoteSchema = new mongoose.Schema({
     total: Number,  // Final total after discounts and charges
 
     notes: String,
+    vendorBillUrl: String,
+    vendorBillUrls: [String],
+    extractedData: mongoose.Schema.Types.Mixed,
 
     meta: {
         createdBy: String,

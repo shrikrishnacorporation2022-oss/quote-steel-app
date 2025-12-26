@@ -51,6 +51,7 @@ const QuoteSchema = new mongoose.Schema({
 
     notes: String,
     vendorBillUrl: String,
+    vendorBillUrls: [String],
     extractedData: mongoose.Schema.Types.Mixed,
 
     meta: {

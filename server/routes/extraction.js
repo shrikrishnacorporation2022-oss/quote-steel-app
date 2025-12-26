@@ -78,6 +78,8 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
         const driveResult = await uploadToDrive(fileBuffer, `vendor_${Date.now()}_${req.file.originalname}`, mimeType);
         if (driveResult) {
             extractedData.vendorBillUrl = driveResult.link;
+        } else {
+            extractedData.driveError = true;
         }
 
         res.json(extractedData);

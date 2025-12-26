@@ -205,6 +205,8 @@ module.exports = async (req, res) => {
                 const driveResult = await uploadToDrive(file.data, `vendor_${Date.now()}_${file.name}`, file.mimeType);
                 if (driveResult) {
                     extractedData.vendorBillUrl = driveResult.link;
+                } else {
+                    extractedData.driveError = true;
                 }
 
                 return res.json(extractedData);

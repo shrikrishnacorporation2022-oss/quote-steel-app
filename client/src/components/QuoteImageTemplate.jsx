@@ -66,7 +66,7 @@ const QuoteImageTemplate = forwardRef(({ quote }, ref) => {
                         // Check for sellsInNos flag (new quotes) OR infer from data (old quotes)
                         const brandName = (item.brand || '').toLowerCase().trim();
                         const isTataBrand = brandName.includes('tata');
-                        const isNosBased = !isInventory && (item.sellsInNos || isTataBrand || (item.inputUnit === 'nos' && item.pricePerRod > 0));
+                        const isNosBased = !isInventory && (item.sellsInNos || isTataBrand);
 
                         if (isInventory) {
                             quantityDisplay = `${item.inputQty} ${item.inputUnit}`;

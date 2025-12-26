@@ -112,7 +112,7 @@ const generateQuotePDF = (quote) => {
                 const isInventory = item.brand === 'Other';
                 const brandName = (item.brand || '').toLowerCase().trim();
                 const isTataBrand = brandName.includes('tata');
-                const isNosBased = !isInventory && (item.sellsInNos || isTataBrand || (item.inputUnit === 'nos' && item.pricePerRod > 0));
+                const isNosBased = !isInventory && (item.sellsInNos || isTataBrand);
 
                 const itemName = isInventory ? item.product : (item.brand || 'TMT Bar');
                 let itemPrice;
