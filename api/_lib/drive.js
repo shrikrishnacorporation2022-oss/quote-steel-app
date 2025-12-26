@@ -3,28 +3,34 @@ const stream = require('stream');
 
 /**
  * Uploads a file to Google Drive using a service account.
- * Requires environment variables:
- * - GOOGLE_CLIENT_EMAIL
- * - GOOGLE_PRIVATE_KEY
- * - GOOGLE_DRIVE_FOLDER_ID
  */
 async function uploadToDrive(fileBuffer, fileName, mimeType) {
-    if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY || !process.env.GOOGLE_DRIVE_FOLDER_ID) {
-        console.warn('Google Drive credentials missing. Skipping upload.');
+    const rawEmail = process.env.GOOGLE_CLIENT_EMAIL;
+    const rawKey = process.env.GOOGLE_PRIVATE_KEY;
+    const rawFolder = process.env.GOOGLE_DRIVE_FOLDER_ID;
+
+    if (!rawEmail || !rawKey || !rawFolder) {
+        console.warn('Google Drive credentials missing in environment variables.');
         return null;
     }
 
-    try {
-        // Robust private key parsing
-        let privateKey = process.env.GOOGLE_PRIVATE_KEY;
-        if (privateKey && privateKey.includes('\\n')) {
-            privateKey = privateKey.replace(/\\n/g, '\n');
-        }
+    // Ultra-robust cleaning of credentials
+    const cleanEmail = rawEmail.trim().replace(/^["']/, '').replace(/["']$/, '');
+    const cleanFolder = rawFolder.trim().replace(/^["']/, '').replace(/["']$/, '');
 
+    let cleanKey = rawKey.trim();
+    // Remove wrapping quotes if present
+    if ((cleanKey.startsWith('"') && cleanKey.endsWith('"')) || (cleanKey.startsWith("'") && cleanKey.endsWith("'"))) {
+        cleanKey = cleanKey.substring(1, cleanKey.length - 1);
+    }
+    // Handle literal \n strings (common in Vercel/Env variables)
+    cleanKey = cleanKey.replace(/\\n/g, '\n');
+
+    try {
         const auth = new google.auth.JWT(
-            process.env.GOOGLE_CLIENT_EMAIL,
+            cleanEmail,
             null,
-            privateKey,
+            cleanKey,
             ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive']
         );
 
@@ -35,7 +41,7 @@ async function uploadToDrive(fileBuffer, fileName, mimeType) {
 
         const fileMetadata = {
             name: fileName,
-            parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+            parents: [cleanFolder],
         };
 
         const media = {
@@ -43,13 +49,14 @@ async function uploadToDrive(fileBuffer, fileName, mimeType) {
             body: bufferStream,
         };
 
+        // 1. Create the file
         const response = await drive.files.create({
             requestBody: fileMetadata,
             media: media,
             fields: 'id, webViewLink, webContentLink',
         });
 
-        // Make the file readable by anyone with the link (optional, but useful for preview)
+        // 2. Set permissions (Make anyone with link a reader)
         try {
             await drive.permissions.create({
                 fileId: response.data.id,
@@ -59,7 +66,7 @@ async function uploadToDrive(fileBuffer, fileName, mimeType) {
                 },
             });
         } catch (permError) {
-            console.error('Error setting file permissions:', permError);
+            console.error('Drive: Permission warning (ignorable):', permError.message);
         }
 
         return {
@@ -68,7 +75,10 @@ async function uploadToDrive(fileBuffer, fileName, mimeType) {
             downloadLink: response.data.webContentLink
         };
     } catch (error) {
-        console.error('Google Drive Upload Error:', error);
+        console.error('Google Drive Upload Error Stack:', error);
+        if (error.response && error.response.data) {
+            console.error('Detailed Error Data:', JSON.stringify(error.response.data, null, 2));
+        }
         return null;
     }
 }
