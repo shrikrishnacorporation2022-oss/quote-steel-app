@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { uploadToDrive } = require('../../api/_lib/drive');
+const { sanitizeJSON } = require('../../api/_lib/sanitizer');
 
 // Configure Multer for file uploads (using memory storage for direct processing)
 const upload = multer({
@@ -66,13 +67,13 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
         const response = await result.response;
         const text = response.text();
 
-        // Extract JSON from response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            throw new Error('Failed to parse AI response into JSON');
+        // Extract and Sanitize JSON
+        const sanitized = sanitizeJSON(text);
+        if (!sanitized) {
+            throw new Error('Failed to parse AI response into JSON. Raw output: ' + text.substring(0, 500));
         }
 
-        const extractedData = JSON.parse(jsonMatch[0]);
+        const extractedData = JSON.parse(sanitized);
 
         // 3. Upload file to Google Drive (Permanent Storage)
         const driveResult = await uploadToDrive(fileBuffer, `vendor_${Date.now()}_${req.file.originalname}`, mimeType);

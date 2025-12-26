@@ -16,14 +16,23 @@ async function uploadToDrive(fileBuffer, fileName, mimeType) {
 
     // Clean credentials
     const cleanEmail = rawEmail.trim().replace(/^["']/, '').replace(/["']$/, '');
-    const cleanFolder = rawFolder.trim().replace(/^["']/, '').replace(/["']$/, '');
+
+    // Robust Folder ID extraction
+    let cleanFolder = rawFolder.trim().replace(/^["']/, '').replace(/["']$/, '');
+    if (cleanFolder.includes('drive.google.com')) {
+        // Extract ID from URL (handles /folders/ID or ?id=ID)
+        const folderMatch = cleanFolder.match(/folders\/([a-zA-Z0-9_-]+)/) || cleanFolder.match(/id=([a-zA-Z0-9_-]+)/);
+        if (folderMatch) {
+            cleanFolder = folderMatch[1];
+        }
+    }
+
     let cleanKey = rawKey.trim();
     if (cleanKey.startsWith('"') || cleanKey.startsWith("'")) cleanKey = cleanKey.substring(1);
     if (cleanKey.endsWith('"') || cleanKey.endsWith("'")) cleanKey = cleanKey.substring(0, cleanKey.length - 1);
     cleanKey = cleanKey.replace(/\\n/g, '\n');
 
     try {
-        // Use GoogleAuth instead of JWT for better automatic token management
         const auth = new google.auth.GoogleAuth({
             credentials: {
                 client_email: cleanEmail,
@@ -64,8 +73,8 @@ async function uploadToDrive(fileBuffer, fileName, mimeType) {
         };
     } catch (error) {
         console.error('Drive Error:', error.message);
-        if (error.response && error.response.status === 401) {
-            console.error('AUTHENTICATION FAILED: Check if GOOGLE_PRIVATE_KEY and GOOGLE_CLIENT_EMAIL are exactly correct in Vercel.');
+        if (error.response && error.response.status === 404) {
+            console.error('Drive Error: Folder not found. Ensure the Folder ID is correct and shared with the service account email as Editor.');
         }
         return null;
     }

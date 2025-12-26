@@ -7,6 +7,8 @@ const pdfGenerator = require('./_lib/pdfGenerator');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Busboy = require('busboy');
 const { uploadToDrive } = require('./_lib/drive');
+const { sanitizeJSON } = require('./_lib/sanitizer');
+const mongoose = require('mongoose');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const cookie = require('cookie');
@@ -193,13 +195,13 @@ module.exports = async (req, res) => {
 
                 const response = await aiResult.response;
                 const text = response.text();
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
 
-                if (!jsonMatch) {
-                    throw new Error('Failed to parse AI response into JSON');
+                const sanitized = sanitizeJSON(text);
+                if (!sanitized) {
+                    throw new Error('Failed to extract JSON from AI response. Raw output: ' + text.substring(0, 500));
                 }
 
-                const extractedData = JSON.parse(jsonMatch[0]);
+                const extractedData = JSON.parse(sanitized);
 
                 // 3. Upload file to Google Drive (Permanent Storage)
                 const driveResult = await uploadToDrive(file.data, `vendor_${Date.now()}_${file.name}`, file.mimeType);
