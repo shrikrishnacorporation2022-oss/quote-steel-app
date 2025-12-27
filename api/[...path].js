@@ -190,6 +190,12 @@ module.exports = async (req, res) => {
 
                 let openaiContent;
                 if (file.mimeType === 'application/pdf') {
+                    const pdf = require('pdf-parse');
+                    // Fix "DOMMatrix is not defined" error in Node/Vercel
+                    if (typeof global.DOMMatrix === 'undefined') {
+                        global.DOMMatrix = class DOMMatrix { };
+                    }
+
                     // 1. Extract text from PDF using pdf-parse (No AI for conversion)
                     const pdfData = await pdf(file.data);
                     if (!pdfData.text || pdfData.text.trim().length === 0) {

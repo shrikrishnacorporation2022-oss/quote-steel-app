@@ -57,6 +57,10 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
 
         let openaiContent;
         if (mimeType === 'application/pdf') {
+            // Fix "DOMMatrix is not defined" error in Node/Vercel
+            if (typeof global.DOMMatrix === 'undefined') {
+                global.DOMMatrix = class DOMMatrix { };
+            }
             const pdfData = await pdf(fileBuffer);
             if (!pdfData.text || pdfData.text.trim().length === 0) {
                 throw new Error('This PDF appears to be a scanned image with no selectable text. Please upload an Image (JPG/PNG) instead.');
