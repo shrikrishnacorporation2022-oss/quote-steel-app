@@ -16,6 +16,8 @@
     "express-session": "^1.18.2",
     "mongoose": "^7.6.3",
     "multer": "^2.0.2",
+    "openai": "^6.15.0",
+    "pdf-parse": "^2.4.5",
     "pdfkit": "^0.13.0",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0"

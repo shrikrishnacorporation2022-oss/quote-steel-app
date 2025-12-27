@@ -8,6 +8,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Busboy = require('busboy');
 const { uploadToDrive } = require('./_lib/drive');
 const { sanitizeJSON } = require('./_lib/sanitizer');
+const OpenAI = require('openai');
+const pdf = require('pdf-parse');
 const mongoose = require('mongoose');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
@@ -157,12 +159,14 @@ module.exports = async (req, res) => {
                 const { file } = await parseMultipart();
                 if (!file) return res.status(400).json({ message: 'No file uploaded' });
 
-                const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                const openai = new OpenAI({
+                    apiKey: process.env.OPENAI_API_KEY,
+                    organization: process.env.OPENAI_ORG_ID,
+                });
 
                 const prompt = `
                     Extract data from this vendor invoice/quote into a structured JSON format.
-                    Return ONLY the JSON object.
+                    Return ONLY the JSON object. No markdown, no extra text.
                     
                     Fields to extract:
                     - vendor: Name of the vendor
@@ -179,26 +183,44 @@ module.exports = async (req, res) => {
                     - Try to clean up descriptions (e.g., remove serial numbers if they are separate).
                     - Ensure qty, rate, and taxRate are numbers.
                     - If a field is missing, use null.
-                    - If taxRate is not found, use null (do not guess unless it is explicitly mentioned for the item).
-                    - Focus on the main items being quoted or sold.
+                    - If taxRate is not found, use null.
+                    - STRICT: Do not use trailing commas in the JSON.
                 `;
 
-                const aiResult = await model.generateContent([
-                    prompt,
-                    {
-                        inlineData: {
-                            data: file.data.toString('base64'),
-                            mimeType: file.mimeType
-                        }
+                let openaiContent;
+                if (file.mimeType === 'application/pdf') {
+                    // 1. Extract text from PDF using pdf-parse (No AI for conversion)
+                    const pdfData = await pdf(file.data);
+                    if (!pdfData.text || pdfData.text.trim().length === 0) {
+                        throw new Error('This PDF appears to be a scanned image with no selectable text. Please upload an Image (JPG/PNG) instead.');
                     }
-                ]);
+                    openaiContent = [
+                        { type: "text", text: prompt },
+                        { type: "text", text: "Here is the extracted text from the PDF:\n\n" + pdfData.text }
+                    ];
+                } else {
+                    // 2. Handle as Image using GPT-4o Vision
+                    openaiContent = [
+                        { type: "text", text: prompt },
+                        {
+                            type: "image_url",
+                            image_url: {
+                                url: `data:${file.mimeType};base64,${file.data.toString('base64')}`,
+                            },
+                        },
+                    ];
+                }
 
-                const response = await aiResult.response;
-                const text = response.text();
+                const completion = await openai.chat.completions.create({
+                    model: "gpt-4o",
+                    messages: [{ role: "user", content: openaiContent }],
+                    response_format: { type: "json_object" }
+                });
 
+                const text = completion.choices[0].message.content;
                 const sanitized = sanitizeJSON(text);
                 if (!sanitized) {
-                    throw new Error('Failed to extract JSON from AI response. Raw output: ' + text.substring(0, 500));
+                    throw new Error('Failed to extract JSON from OpenAI response.');
                 }
 
                 const extractedData = JSON.parse(sanitized);

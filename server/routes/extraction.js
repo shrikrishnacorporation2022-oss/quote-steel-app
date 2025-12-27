@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { OpenAI } = require('openai');
+const pdf = require('pdf-parse');
 const { uploadToDrive } = require('../../api/_lib/drive');
 const { sanitizeJSON } = require('../../api/_lib/sanitizer');
 
@@ -11,8 +12,11 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Initialize OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    organization: process.env.OPENAI_ORG_ID,
+});
 
 router.post('/extract-quote', upload.single('file'), async (req, res) => {
     try {
@@ -20,20 +24,17 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
-        if (!process.env.GEMINI_API_KEY) {
-            return res.status(500).json({ message: 'Gemini API Key missing on server' });
+        if (!process.env.OPENAI_API_KEY) {
+            return res.status(500).json({ message: 'OpenAI API Key missing on server' });
         }
 
         const fileBuffer = req.file.buffer;
         const mimeType = req.file.mimetype;
         const base64File = fileBuffer.toString('base64');
 
-        // Prepare Gemini model
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
         const prompt = `
             Extract data from this vendor invoice/quote into a structured JSON format.
-            Return ONLY the JSON object.
+            Return ONLY the JSON object. No markdown, no extra text.
             
             Fields to extract:
             - vendor: Name of the vendor
@@ -50,27 +51,44 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
             - Try to clean up descriptions (e.g., remove serial numbers if they are separate).
             - Ensure qty, rate, and taxRate are numbers.
             - If a field is missing, use null.
-            - If taxRate is not found, use null (do not guess unless it is explicitly mentioned for the item).
-            - Focus on the main items being quoted or sold.
+            - If taxRate is not found, use null.
+            - STRICT: Do not use trailing commas in the JSON.
         `;
 
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    data: base64File,
-                    mimeType: mimeType
-                }
+        let openaiContent;
+        if (mimeType === 'application/pdf') {
+            const pdfData = await pdf(fileBuffer);
+            if (!pdfData.text || pdfData.text.trim().length === 0) {
+                throw new Error('This PDF appears to be a scanned image with no selectable text. Please upload an Image (JPG/PNG) instead.');
             }
-        ]);
+            openaiContent = [
+                { type: "text", text: prompt },
+                { type: "text", text: "Here is the extracted text from the PDF:\n\n" + pdfData.text }
+            ];
+        } else {
+            openaiContent = [
+                { type: "text", text: prompt },
+                {
+                    type: "image_url",
+                    image_url: {
+                        url: `data:${mimeType};base64,${base64File}`,
+                    },
+                },
+            ];
+        }
 
-        const response = await result.response;
-        const text = response.text();
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [{ role: "user", content: openaiContent }],
+            response_format: { type: "json_object" }
+        });
+
+        const text = completion.choices[0].message.content;
 
         // Extract and Sanitize JSON
         const sanitized = sanitizeJSON(text);
         if (!sanitized) {
-            throw new Error('Failed to parse AI response into JSON. Raw output: ' + text.substring(0, 500));
+            throw new Error('Failed to parse AI response into JSON.');
         }
 
         const extractedData = JSON.parse(sanitized);
