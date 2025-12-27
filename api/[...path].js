@@ -8,8 +8,6 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Busboy = require('busboy');
 const { uploadToDrive } = require('./_lib/drive');
 const { sanitizeJSON } = require('./_lib/sanitizer');
-const OpenAI = require('openai');
-const pdf = require('pdf-parse');
 const mongoose = require('mongoose');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
@@ -158,6 +156,9 @@ module.exports = async (req, res) => {
 
                 const { file } = await parseMultipart();
                 if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+                const OpenAI = require('openai');
+                const pdf = require('pdf-parse');
 
                 const openai = new OpenAI({
                     apiKey: process.env.OPENAI_API_KEY,
