@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { OpenAI } = require('openai');
-const pdf = require('pdf-parse');
 const { uploadToDrive } = require('../../api/_lib/drive');
 const { sanitizeJSON } = require('../../api/_lib/sanitizer');
 
@@ -61,6 +60,7 @@ router.post('/extract-quote', upload.single('file'), async (req, res) => {
             if (typeof global.DOMMatrix === 'undefined') {
                 global.DOMMatrix = class DOMMatrix { };
             }
+            const pdf = require('pdf-parse');
             const pdfData = await pdf(fileBuffer);
             if (!pdfData.text || pdfData.text.trim().length === 0) {
                 throw new Error('This PDF appears to be a scanned image with no selectable text. Please upload an Image (JPG/PNG) instead.');
